@@ -1,153 +1,40 @@
-# Auth BDD Bearer
+# IT Support Tickets API
 
-Proyecto Node.js + Express + SQL Server + bcrypt + JWT usando autenticacion por `Authorization: Bearer TOKEN`.
+API REST para registrar usuarios, iniciar sesion y administrar tickets de soporte tecnico/IT con autenticacion JWT y SQL Server.
 
-No usa cookies, `cookie-parser`, `req.cookies.token` ni usuarios estaticos.
+## Descripcion
 
-## Requisitos
+`it-support-tickets-api` es una API REST desarrollada con Node.js, Express y SQL Server para gestionar usuarios, autenticacion y tickets de soporte IT.
+
+Permite crear tickets, consultar tickets, cambiar su estado y agregar comentarios, usando JWT Bearer Token para proteger las rutas privadas.
+
+## Tecnologias
 
 - Node.js
+- Express
 - SQL Server
-- Base de datos `NodeDB`
-- Tabla `Users`
+- mssql
+- JWT
+- bcrypt
+- dotenv
+- Socket.IO instalado para futura fase
+- Resend instalado para futura fase
 
-## Instalacion
+## Funcionalidades actuales
 
-```bash
-npm install
-```
+- Registro de usuarios
+- Login con JWT
+- Ruta protegida de perfil
+- Crear tickets
+- Ver todos los tickets
+- Ver tickets del usuario autenticado
+- Ver ticket por ID
+- Agregar comentarios a tickets
+- Ver comentarios de tickets
+- Cambiar estado del ticket
+- Cierre de ticket con `closed_at`
 
-Copia el archivo `.env.example` a `.env` y ajusta la contrasena de SQL Server:
-
-```env
-PORT=3000
-DB_USER=sa
-DB_PASSWORD=TU_PASSWORD
-DB_SERVER=localhost\MSSQLSERVER01
-DB_DATABASE=NodeDB
-JWT_SECRET=1234567890asdfghjkl
-```
-
-## SQL de referencia
-
-```sql
-CREATE DATABASE NodeDB;
-GO
-
-USE NodeDB;
-GO
-
-CREATE TABLE Users (
-    Id INT IDENTITY(1,1) PRIMARY KEY,
-    Name NVARCHAR(100) NOT NULL,
-    Email NVARCHAR(150) NOT NULL UNIQUE,
-    PasswordHash NVARCHAR(255) NOT NULL
-);
-GO
-```
-
-## Ejecutar
-
-Modo desarrollo:
-
-```bash
-npm run dev
-```
-
-Modo normal:
-
-```bash
-npm start
-```
-
-El servidor levantara en:
-
-```text
-http://localhost:3000
-```
-
-## Probar en Postman
-
-### 1. Verificar servidor
-
-```http
-GET http://localhost:3000/
-```
-
-Respuesta esperada:
-
-```json
-{
-  "status": 200,
-  "message": "Server is running"
-}
-```
-
-### 2. Registrar usuario
-
-```http
-POST http://localhost:3000/register
-Content-Type: application/json
-```
-
-Body:
-
-```json
-{
-  "name": "Jose Luis",
-  "email": "jl@gmail.com",
-  "password": "Hola123"
-}
-```
-
-El password se guarda como hash en la columna `PasswordHash`.
-
-### 3. Iniciar sesion
-
-```http
-POST http://localhost:3000/login
-Content-Type: application/json
-```
-
-Body:
-
-```json
-{
-  "email": "jl@gmail.com",
-  "password": "Hola123"
-}
-```
-
-Respuesta esperada:
-
-```json
-{
-  "status": 200,
-  "message": "Login successfully",
-  "user": {
-    "id": 1,
-    "name": "Jose Luis",
-    "email": "jl@gmail.com"
-  },
-  "token": "JWT_TOKEN"
-}
-```
-
-### 4. Consultar perfil protegido
-
-```http
-GET http://localhost:3000/profile
-Authorization: Bearer JWT_TOKEN
-```
-
-En Postman, tambien puedes usar la pestana `Authorization`:
-
-- Type: `Bearer Token`
-- Token: pega el token recibido en `/login`
-
-Si el token es valido, `/profile` devuelve los datos decodificados del usuario.
-
-## Estructura
+## Estructura del proyecto
 
 ```text
 src/
@@ -155,12 +42,93 @@ src/
     db.js
   controllers/
     authController.js
+    ticketsController.js
+    ticketCommentsController.js
   middlewares/
     authMiddleware.js
   routes/
     authRoutes.js
+    ticketsRoutes.js
+    ticketCommentsRoutes.js
   server.js
-package.json
-.env.example
-README.md
 ```
+
+- `src/config`: configuracion de conexion a SQL Server.
+- `src/controllers`: logica de autenticacion, tickets y comentarios.
+- `src/middlewares`: middleware JWT para proteger rutas.
+- `src/routes`: definicion de endpoints de la API.
+- `src/server.js`: punto de entrada del servidor Express.
+
+## Variables de entorno
+
+Crea un archivo `.env` basado en `.env.example`:
+
+```env
+PORT=3000
+DB_USER=your_sql_user
+DB_PASSWORD=your_sql_password
+DB_SERVER=localhost\\MSSQLSERVER01
+DB_DATABASE=ITSupportTicketsDB
+JWT_SECRET=your_jwt_secret
+```
+
+## Endpoints principales
+
+### Auth
+
+```http
+POST /register
+POST /login
+GET /profile
+```
+
+### Tickets
+
+```http
+POST /tickets
+GET /tickets
+GET /tickets/my
+GET /tickets/:id
+PUT /tickets/:id
+PATCH /tickets/:id/status
+DELETE /tickets/:id
+```
+
+### Comments
+
+```http
+POST /tickets/:ticketId/comments
+GET /tickets/:ticketId/comments
+```
+
+## Como ejecutar
+
+Instalar dependencias:
+
+```bash
+npm install
+```
+
+Crear el archivo `.env` basado en `.env.example` y configurar las variables de entorno.
+
+Ejecutar el servidor:
+
+```bash
+node src/server.js
+```
+
+El servidor levantara por defecto en:
+
+```text
+http://localhost:3000
+```
+
+## Estado del proyecto
+
+Backend funcional.
+
+Proximas fases:
+
+- Socket.IO para actualizaciones en tiempo real
+- Correos con Resend
+- Frontend sencillo
