@@ -1,0 +1,29 @@
+{
+  "name": "auth-bdd-bearer",
+  "version": "1.0.0",
+  "description": "Node.js + Express + SQL Server authentication with bcrypt and JWT Bearer tokens.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
+  },
+  "keywords": [
+    "express",
+    "sql-server",
+    "jwt",
+    "bearer",
+    "bcrypt"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "mssql": "^11.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
