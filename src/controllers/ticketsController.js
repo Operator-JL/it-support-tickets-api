@@ -1,5 +1,7 @@
 const { sql, getConnection } = require('../config/db');
 
+const allowedStatuses = ['Abierto', 'En proceso', 'Cerrado'];
+
 const mapTicket = (ticket) => {
   return {
     id: ticket.id,
@@ -317,6 +319,13 @@ const updateTicketStatus = async (req, res) => {
       return res.status(400).json({
         status: 400,
         message: 'Status is required'
+      });
+    }
+
+    if (!allowedStatuses.includes(cleanStatus)) {
+      return res.status(400).json({
+        status: 400,
+        message: `Status must be one of: ${allowedStatuses.join(', ')}`
       });
     }
 

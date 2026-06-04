@@ -1,7 +1,7 @@
 {
-  "name": "auth-bdd-bearer",
+  "name": "it-support-tickets-api",
   "version": "1.0.0",
-  "description": "Node.js + Express + SQL Server authentication with bcrypt and JWT Bearer tokens.",
+  "description": "API REST para sistema de tickets de soporte IT con Node.js, Express, SQL Server y JWT.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
