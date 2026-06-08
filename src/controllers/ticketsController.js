@@ -1,6 +1,7 @@
 const { sql, getConnection } = require('../config/db');
 
 const allowedStatuses = ['Abierto', 'En proceso', 'Cerrado'];
+const allowedPriorities = ['Baja', 'Media', 'Alta', 'Urgente'];
 
 const mapTicket = (ticket) => {
   return {
@@ -87,7 +88,7 @@ const createTicket = async (req, res) => {
     const cleanTitle = getRequiredText(title);
     const cleanDescription = getRequiredText(description);
     const cleanCategory = getRequiredText(category);
-    const cleanPriority = priority ? getRequiredText(priority) : 'Media';
+    const cleanPriority = priority === undefined ? 'Media' : getRequiredText(priority);
 
     if (!cleanTitle || !cleanDescription || !cleanCategory) {
       return res.status(400).json({
@@ -100,6 +101,13 @@ const createTicket = async (req, res) => {
       return res.status(400).json({
         status: 400,
         message: 'Priority cannot be empty'
+      });
+    }
+
+    if (!allowedPriorities.includes(cleanPriority)) {
+      return res.status(400).json({
+        status: 400,
+        message: `Priority must be one of: ${allowedPriorities.join(', ')}`
       });
     }
 
@@ -257,6 +265,13 @@ const updateTicket = async (req, res) => {
       return res.status(400).json({
         status: 400,
         message: 'Fields cannot be empty'
+      });
+    }
+
+    if (cleanPriority !== null && !allowedPriorities.includes(cleanPriority)) {
+      return res.status(400).json({
+        status: 400,
+        message: `Priority must be one of: ${allowedPriorities.join(', ')}`
       });
     }
 

@@ -1,12 +1,8 @@
 # IT Support Tickets API
 
-API REST para registrar usuarios, iniciar sesion y administrar tickets de soporte tecnico/IT con autenticacion JWT y SQL Server.
+API REST para gestionar tickets de soporte tecnico/IT. El proyecto esta construido con Node.js, Express, SQL Server y autenticacion JWT.
 
-## Descripcion
-
-`it-support-tickets-api` es una API REST desarrollada con Node.js, Express y SQL Server para gestionar usuarios, autenticacion y tickets de soporte IT.
-
-Permite crear tickets, consultar tickets, cambiar su estado y agregar comentarios, usando JWT Bearer Token para proteger las rutas privadas.
+El backend permite registrar usuarios, iniciar sesion, consultar el perfil autenticado, crear tickets, administrar su estado y agregar comentarios a tickets.
 
 ## Tecnologias
 
@@ -14,27 +10,24 @@ Permite crear tickets, consultar tickets, cambiar su estado y agregar comentario
 - Express
 - SQL Server
 - mssql
-- JWT
+- JSON Web Token (JWT)
 - bcrypt
 - dotenv
-- Socket.IO instalado para futura fase
-- Resend instalado para futura fase
+- nodemon para desarrollo
+- Resend instalado para una fase futura
+- Socket.IO instalado para una fase futura
 
-## Funcionalidades actuales
+## Estado actual
 
-- Registro de usuarios
-- Login con JWT
-- Ruta protegida de perfil
-- Crear tickets
-- Ver todos los tickets
-- Ver tickets del usuario autenticado
-- Ver ticket por ID
-- Agregar comentarios a tickets
-- Ver comentarios de tickets
-- Cambiar estado del ticket
-- Cierre de ticket con `closed_at`
+- Backend REST funcional.
+- Autenticacion con JWT Bearer Token.
+- Rutas privadas protegidas con middleware de autenticacion.
+- Tickets con flujo basico: abierto, en proceso y cerrado.
+- Comentarios asociados a tickets.
+- Resend y Socket.IO estan instalados/preparados, pero todavia no estan integrados en el flujo principal.
+- No hay frontend en esta fase.
 
-## Estructura del proyecto
+## Estructura principal
 
 ```text
 src/
@@ -53,36 +46,107 @@ src/
   server.js
 ```
 
-- `src/config`: configuracion de conexion a SQL Server.
-- `src/controllers`: logica de autenticacion, tickets y comentarios.
-- `src/middlewares`: middleware JWT para proteger rutas.
-- `src/routes`: definicion de endpoints de la API.
-- `src/server.js`: punto de entrada del servidor Express.
+## Instalacion
+
+Instala las dependencias:
+
+```bash
+npm install
+```
+
+Crea un archivo `.env` basado en `.env.example` y configura las variables necesarias para tu entorno local.
 
 ## Variables de entorno
 
-Crea un archivo `.env` basado en `.env.example`:
+Variables actuales esperadas:
 
 ```env
-PORT=3000
-DB_USER=your_sql_user
-DB_PASSWORD=your_sql_password
-DB_SERVER=localhost\\MSSQLSERVER01
-DB_DATABASE=ITSupportTicketsDB
-JWT_SECRET=your_jwt_secret
+PORT=
+DB_USER=
+DB_PASSWORD=
+DB_SERVER=
+DB_DATABASE=
+JWT_SECRET=
 ```
 
-## Endpoints principales
+Variables preparadas para una fase futura con Resend:
+
+```env
+RESEND_API_KEY=
+EMAIL_FROM=
+EMAIL_TO=
+EMAIL_ENABLED=false
+```
+
+Los correos no estan activos todavia.
+
+## Comandos
+
+Ejecutar en modo normal:
+
+```bash
+npm start
+```
+
+Ejecutar en modo desarrollo con nodemon:
+
+```bash
+npm run dev
+```
+
+Tambien se puede ejecutar directamente:
+
+```bash
+node src/server.js
+```
+
+URL local:
+
+```text
+http://localhost:3000
+```
+
+## Health check
+
+```http
+GET /
+```
+
+Respuesta esperada:
+
+```json
+{
+  "status": 200,
+  "message": "Server is running"
+}
+```
+
+## Autenticacion
+
+Las rutas protegidas requieren el token JWT en el header:
+
+```http
+Authorization: Bearer <token>
+```
+
+El token se obtiene al iniciar sesion con `POST /login`.
+
+## Endpoints reales
 
 ### Auth
 
 ```http
+GET /
 POST /register
 POST /login
 GET /profile
 ```
 
+`GET /profile` requiere autenticacion.
+
 ### Tickets
+
+Todas las rutas de tickets requieren autenticacion.
 
 ```http
 POST /tickets
@@ -94,41 +158,142 @@ PATCH /tickets/:id/status
 DELETE /tickets/:id
 ```
 
-### Comments
+### Comentarios
+
+Todas las rutas de comentarios requieren autenticacion.
 
 ```http
 POST /tickets/:ticketId/comments
 GET /tickets/:ticketId/comments
 ```
 
-## Como ejecutar
+## Ejemplos JSON
 
-Instalar dependencias:
+### Registro
 
-```bash
-npm install
+```http
+POST /register
+Content-Type: application/json
 ```
 
-Crear el archivo `.env` basado en `.env.example` y configurar las variables de entorno.
-
-Ejecutar el servidor:
-
-```bash
-node src/server.js
+```json
+{
+  "name": "Demo User",
+  "email": "demo@example.com",
+  "password": "demo123"
+}
 ```
 
-El servidor levantara por defecto en:
+### Login
+
+```http
+POST /login
+Content-Type: application/json
+```
+
+```json
+{
+  "email": "demo@example.com",
+  "password": "demo123"
+}
+```
+
+### Crear ticket
+
+```http
+POST /tickets
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+```json
+{
+  "title": "No puedo acceder al correo",
+  "description": "El usuario no puede iniciar sesion en su cuenta de correo.",
+  "category": "Correo",
+  "priority": "Media"
+}
+```
+
+Prioridades validas:
+
+- Baja
+- Media
+- Alta
+- Urgente
+
+Si no se envia `priority`, se usa `Media` como valor por defecto.
+
+### Cambiar estado del ticket
+
+```http
+PATCH /tickets/:id/status
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+```json
+{
+  "status": "En proceso"
+}
+```
+
+Estados validos:
+
+- Abierto
+- En proceso
+- Cerrado
+
+Cuando el estado cambia a `Cerrado`, se actualiza `closed_at`.
+
+### Agregar comentario
+
+```http
+POST /tickets/:ticketId/comments
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+```json
+{
+  "comment": "Se contacto al usuario y se esta revisando la cuenta."
+}
+```
+
+## Base de datos
+
+El archivo `database.sql` contiene un script base para crear las tablas esperadas por el proyecto en SQL Server:
+
+- Users
+- Tickets
+- TicketComments
+
+El script usa `IF OBJECT_ID(...) IS NULL` para evitar errores si las tablas ya existen.
+
+## Fases futuras
+
+### Resend Email API
+
+Resend esta instalado, pero todavia no se usa en ningun controlador. Una integracion ordenada podria vivir en:
 
 ```text
-http://localhost:3000
+src/services/emailService.js
 ```
 
-## Estado del proyecto
+Momentos recomendados para enviar correos en una fase futura:
 
-Backend funcional.
+- Al crear un ticket.
+- Al cambiar el estado de un ticket.
+- Opcionalmente al cerrar un ticket.
 
-Proximas fases:
+El envio de correo deberia estar aislado con `try/catch` para que un fallo de email no rompa la respuesta principal de la API.
 
-- Socket.IO para actualizaciones en tiempo real
-- Correos con Resend
-- Frontend sencillo
+### Socket.IO
+
+Socket.IO esta instalado, pero no integrado todavia. Conviene dejarlo para una fase posterior, cuando el backend REST ya este cerrado para demo.
+
+Casos futuros:
+
+- Notificar tickets nuevos en tiempo real.
+- Notificar cambios de estado.
+- Mostrar comentarios nuevos sin recargar.
