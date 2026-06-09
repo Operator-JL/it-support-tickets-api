@@ -1,4 +1,5 @@
 const { sql, getConnection } = require('../config/db');
+const { isSupportRole } = require('../middlewares/roleMiddleware');
 
 const mapComment = (comment) => {
   return {
@@ -20,13 +21,24 @@ const getTicketId = (id) => {
   return ticketId;
 };
 
-const ticketExists = async (pool, ticketId) => {
+const getTicketById = async (pool, ticketId) => {
   const result = await pool
     .request()
     .input('TicketId', sql.Int, ticketId)
-    .query('SELECT id FROM Tickets WHERE id = @TicketId');
+    .query('SELECT id, user_id FROM Tickets WHERE id = @TicketId');
 
-  return result.recordset.length > 0;
+  return result.recordset[0];
+};
+
+const canAccessTicket = (ticket, user) => {
+  return isSupportRole(user) || Number(ticket.user_id) === Number(user?.id);
+};
+
+const sendForbidden = (res) => {
+  return res.status(403).json({
+    status: 403,
+    message: 'You do not have permission to perform this action'
+  });
 };
 
 const addComment = async (req, res) => {
@@ -50,13 +62,17 @@ const addComment = async (req, res) => {
     }
 
     const pool = await getConnection();
-    const exists = await ticketExists(pool, ticketId);
+    const ticket = await getTicketById(pool, ticketId);
 
-    if (!exists) {
+    if (!ticket) {
       return res.status(404).json({
         status: 404,
         message: 'Ticket not found'
       });
+    }
+
+    if (!canAccessTicket(ticket, req.user)) {
+      return sendForbidden(res);
     }
 
     const result = await pool
@@ -101,13 +117,17 @@ const getTicketComments = async (req, res) => {
     }
 
     const pool = await getConnection();
-    const exists = await ticketExists(pool, ticketId);
+    const ticket = await getTicketById(pool, ticketId);
 
-    if (!exists) {
+    if (!ticket) {
       return res.status(404).json({
         status: 404,
         message: 'Ticket not found'
       });
+    }
+
+    if (!canAccessTicket(ticket, req.user)) {
+      return sendForbidden(res);
     }
 
     const result = await pool

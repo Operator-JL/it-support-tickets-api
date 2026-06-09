@@ -1,8 +1,8 @@
-# IT Support Tickets API
+# SIST - IT Support Tickets API
 
-API REST para gestionar tickets de soporte tecnico/IT. El proyecto esta construido con Node.js, Express, SQL Server y autenticacion JWT.
+API REST para SIST: Sistema Interno de Soporte Tecnico. El proyecto esta construido con Node.js, Express, SQL Server y autenticacion JWT.
 
-El backend permite registrar usuarios, iniciar sesion, consultar el perfil autenticado, crear tickets, administrar su estado y agregar comentarios a tickets.
+El backend permite registrar usuarios, iniciar sesion, consultar el perfil autenticado, crear tickets, administrar su estado y agregar comentarios con reglas basicas de roles y ownership.
 
 ## Tecnologias
 
@@ -39,6 +39,7 @@ src/
     ticketCommentsController.js
   middlewares/
     authMiddleware.js
+    roleMiddleware.js
   routes/
     authRoutes.js
     ticketsRoutes.js
@@ -131,6 +132,29 @@ Authorization: Bearer <token>
 
 El token se obtiene al iniciar sesion con `POST /login`.
 
+El token incluye datos basicos del usuario autenticado:
+
+- `id`
+- `name`
+- `email`
+- `role`
+
+## Roles y permisos
+
+Roles disponibles:
+
+- `user`
+- `it`
+- `admin`
+
+Reglas actuales:
+
+- `user`: puede crear tickets, ver sus propios tickets, ver detalle de sus propios tickets y comentar en sus propios tickets.
+- `it`: puede ver todos los tickets, actualizar tickets, cambiar estado y comentar en cualquier ticket.
+- `admin`: tiene los mismos permisos que `it` y ademas puede borrar tickets.
+
+El registro publico siempre crea usuarios con role `user`. Para una demo, un usuario puede convertirse manualmente a `it` o `admin` desde SQL Server.
+
 ## Endpoints reales
 
 ### Auth
@@ -183,6 +207,8 @@ Content-Type: application/json
   "password": "demo123"
 }
 ```
+
+El usuario registrado queda con role `user` por defecto.
 
 ### Login
 
@@ -269,6 +295,22 @@ El archivo `database.sql` contiene un script base para crear las tablas esperada
 - TicketComments
 
 El script usa `IF OBJECT_ID(...) IS NULL` para evitar errores si las tablas ya existen.
+
+Si tu tabla `Users` ya existia antes de agregar roles, puedes ejecutar el script completo o aplicar manualmente una migracion similar:
+
+```sql
+ALTER TABLE dbo.Users
+ADD Role NVARCHAR(20) NOT NULL DEFAULT ('user') WITH VALUES;
+```
+
+Para preparar usuarios de demo con permisos elevados:
+
+```sql
+UPDATE Users SET role = 'admin' WHERE email = 'admin@example.com';
+UPDATE Users SET role = 'it' WHERE email = 'soporte@example.com';
+```
+
+Despues de cambiar el role en SQL Server, vuelve a hacer login para obtener un JWT nuevo con el role actualizado.
 
 ## Fases futuras
 
