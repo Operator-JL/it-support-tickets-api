@@ -1,4 +1,5 @@
 const { sql, getConnection } = require('../config/db');
+const { isAdmin, isSupportRole } = require('../middlewares/roleMiddleware');
 
 const allowedStatuses = ['Abierto', 'En proceso', 'Cerrado'];
 const allowedPriorities = ['Baja', 'Media', 'Alta', 'Urgente'];
@@ -82,6 +83,21 @@ const getTicketId = (id) => {
   return ticketId;
 };
 
+const isTicketOwner = (ticket, user) => {
+  return Number(ticket.user_id) === Number(user?.id);
+};
+
+const canAccessTicket = (ticket, user) => {
+  return isSupportRole(user) || isTicketOwner(ticket, user);
+};
+
+const sendForbidden = (res) => {
+  return res.status(403).json({
+    status: 403,
+    message: 'You do not have permission to perform this action'
+  });
+};
+
 const createTicket = async (req, res) => {
   try {
     const { title, description, category, priority } = req.body;
@@ -143,11 +159,21 @@ const createTicket = async (req, res) => {
 const getAllTickets = async (req, res) => {
   try {
     const pool = await getConnection();
-
-    const result = await pool.request().query(`
+    const request = pool.request();
+    let query = `
       ${getTicketSelectQuery()}
       ORDER BY created_at DESC
-    `);
+    `;
+
+    if (!isSupportRole(req.user)) {
+      request.input('UserId', sql.Int, req.user.id);
+      query = `
+        ${getTicketSelectQuery('WHERE user_id = @UserId')}
+        ORDER BY created_at DESC
+      `;
+    }
+
+    const result = await request.query(query);
 
     return res.status(200).json({
       status: 200,
@@ -214,10 +240,16 @@ const getTicketById = async (req, res) => {
       });
     }
 
+    const ticket = result.recordset[0];
+
+    if (!canAccessTicket(ticket, req.user)) {
+      return sendForbidden(res);
+    }
+
     return res.status(200).json({
       status: 200,
       message: 'Ticket found',
-      ticket: mapTicket(result.recordset[0])
+      ticket: mapTicket(ticket)
     });
   } catch (error) {
     return res.status(500).json({
@@ -237,6 +269,10 @@ const updateTicket = async (req, res) => {
         status: 400,
         message: 'Invalid ticket id'
       });
+    }
+
+    if (!isSupportRole(req.user)) {
+      return sendForbidden(res);
     }
 
     const cleanTitle = getOptionalText(req.body.title);
@@ -328,6 +364,10 @@ const updateTicketStatus = async (req, res) => {
       });
     }
 
+    if (!isSupportRole(req.user)) {
+      return sendForbidden(res);
+    }
+
     const cleanStatus = getRequiredText(req.body.status);
 
     if (!cleanStatus) {
@@ -393,6 +433,10 @@ const deleteTicket = async (req, res) => {
         status: 400,
         message: 'Invalid ticket id'
       });
+    }
+
+    if (!isAdmin(req.user)) {
+      return sendForbidden(res);
     }
 
     const pool = await getConnection();

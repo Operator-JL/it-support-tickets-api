@@ -2,12 +2,29 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { sql, getConnection } = require('../config/db');
 
+const DEFAULT_ROLE = 'user';
+
+const getUserRole = (user) => {
+  const role = user.Role || user.role || DEFAULT_ROLE;
+  return typeof role === 'string' ? role.toLowerCase() : DEFAULT_ROLE;
+};
+
+const mapUser = (user) => {
+  return {
+    id: user.Id || user.id,
+    name: user.Name || user.name,
+    email: user.Email || user.email,
+    role: getUserRole(user)
+  };
+};
+
 const createToken = (user) => {
   return jwt.sign(
     {
-      id: user.Id,
-      name: user.Name,
-      email: user.Email
+      id: user.Id || user.id,
+      name: user.Name || user.name,
+      email: user.Email || user.email,
+      role: getUserRole(user)
     },
     process.env.JWT_SECRET,
     { expiresIn: '1h' }
@@ -75,10 +92,11 @@ const register = async (req, res) => {
       .input('Name', sql.NVarChar(100), cleanName)
       .input('Email', sql.NVarChar(150), cleanEmail)
       .input('PasswordHash', sql.NVarChar(255), passwordHash)
+      .input('Role', sql.NVarChar(20), DEFAULT_ROLE)
       .query(`
-        INSERT INTO Users (Name, Email, PasswordHash)
-        OUTPUT INSERTED.Id, INSERTED.Name, INSERTED.Email
-        VALUES (@Name, @Email, @PasswordHash)
+        INSERT INTO Users (Name, Email, PasswordHash, Role)
+        OUTPUT INSERTED.Id, INSERTED.Name, INSERTED.Email, INSERTED.Role
+        VALUES (@Name, @Email, @PasswordHash, @Role)
       `);
 
     const user = result.recordset[0];
@@ -86,11 +104,7 @@ const register = async (req, res) => {
     return res.status(201).json({
       status: 201,
       message: 'User registered successfully',
-      user: {
-        id: user.Id,
-        name: user.Name,
-        email: user.Email
-      }
+      user: mapUser(user)
     });
   } catch (error) {
     if (error.number === 2601 || error.number === 2627) {
@@ -141,7 +155,7 @@ const login = async (req, res) => {
     const result = await pool
       .request()
       .input('Email', sql.NVarChar(150), cleanEmail)
-      .query('SELECT Id, Name, Email, PasswordHash FROM Users WHERE Email = @Email');
+      .query('SELECT Id, Name, Email, PasswordHash, Role FROM Users WHERE Email = @Email');
 
     if (result.recordset.length === 0) {
       return res.status(401).json({
@@ -165,11 +179,7 @@ const login = async (req, res) => {
     return res.status(200).json({
       status: 200,
       message: 'Login successfully',
-      user: {
-        id: user.Id,
-        name: user.Name,
-        email: user.Email
-      },
+      user: mapUser(user),
       token
     });
   } catch (error) {
