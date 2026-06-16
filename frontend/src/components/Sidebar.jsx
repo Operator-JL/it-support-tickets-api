@@ -8,7 +8,7 @@ import {
 import sistLogo from "../assets/brand/sist-logo.png";
 
 const menuItems = [
-  { label: "Dashboard", icon: LayoutDashboard, active: true },
+  { label: "Panel principal", icon: LayoutDashboard, active: true },
   { label: "Tickets", icon: ClipboardList },
   { label: "Usuarios", icon: UsersRound },
   { label: "Reportes", icon: BarChart3 },
@@ -22,7 +22,7 @@ function Sidebar() {
         <img src={sistLogo} alt="SIST" className="sidebar__logo" />
       </div>
 
-      <nav className="sidebar__nav" aria-label="Menu principal">
+      <nav className="sidebar__nav" aria-label="Menú principal">
         {menuItems.map((item) => {
           const Icon = item.icon;
 
@@ -43,7 +43,7 @@ function Sidebar() {
       <div className="sidebar__footer">
         <span className="sidebar__status-dot" />
         <div>
-          <strong>SIST Admin</strong>
+          <strong>SIST Administración</strong>
           <small>Demo local</small>
         </div>
       </div>

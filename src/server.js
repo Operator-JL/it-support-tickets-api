@@ -1,4 +1,5 @@
 const express = require('express'); //confirma express y carga lo de las rutas del postman
+const cors = require('cors');
 require('dotenv').config();
 
 const authRoutes = require('./routes/authRoutes');
@@ -8,6 +9,9 @@ const ticketCommentsRoutes = require('./routes/ticketCommentsRoutes');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.use(cors({
+  origin: 'http://localhost:5173'
+}));
 app.use(express.json()); //recibe los datos en json de postman
 app.use('/', authRoutes); // jala lo de register, login y profile
 app.use('/tickets', ticketsRoutes);

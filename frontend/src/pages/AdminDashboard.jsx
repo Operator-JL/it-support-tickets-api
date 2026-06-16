@@ -5,8 +5,16 @@ import StatCard from "../components/StatCard.jsx";
 import TicketTable from "../components/TicketTable.jsx";
 import { demoTickets } from "../data/mockData.js";
 
-function AdminDashboard() {
+const roleLabels = {
+  admin: "Administrador",
+  it: "Soporte",
+  user: "Usuario",
+};
+
+function AdminDashboard({ user, onLogout }) {
   const [tickets, setTickets] = useState(demoTickets);
+  const userName = user?.name || user?.email || "Usuario";
+  const userRole = roleLabels[(user?.role || "").toLowerCase()] || "Usuario";
 
   const stats = useMemo(() => {
     const highPriority = tickets.filter((ticket) =>
@@ -66,16 +74,22 @@ function AdminDashboard() {
       <main className="dashboard-main">
         <header className="topbar">
           <div>
-            <p className="eyebrow">Sistema Interno de Soporte Tecnico</p>
-            <h1>Dashboard</h1>
+            <p className="eyebrow">Sistema Interno de Soporte Técnico</p>
+            <h1>Panel principal</h1>
             <p>Resumen general de tickets</p>
           </div>
           <div className="current-user" aria-label="Usuario actual">
-            <span>Admin</span>
+            <div className="current-user__details">
+              <span>{userName}</span>
+              <small>{userRole}</small>
+            </div>
+            <button className="logout-button" onClick={onLogout} type="button">
+              Salir
+            </button>
           </div>
         </header>
 
-        <section className="stats-grid" aria-label="Estadisticas de tickets">
+        <section className="stats-grid" aria-label="Estadísticas de tickets">
           {stats.map((stat) => (
             <StatCard
               key={stat.title}

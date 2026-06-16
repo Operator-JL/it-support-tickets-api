@@ -29,6 +29,97 @@ button {
   cursor: pointer;
 }
 
+.login-screen,
+.auth-loading {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(255, 111, 35, 0.14), transparent 28rem),
+    #f4f6fb;
+}
+
+.auth-loading {
+  color: #172033;
+  font-weight: 800;
+}
+
+.login-card {
+  width: min(100%, 420px);
+  padding: 30px;
+  background: #ffffff;
+  border: 1px solid #e9edf4;
+  border-radius: 8px;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+}
+
+.login-card h1 {
+  margin: 4px 0 8px;
+  color: #121826;
+  font-size: 30px;
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+.login-card p {
+  margin: 0;
+  color: #667085;
+}
+
+.login-form {
+  display: grid;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.form-field {
+  display: grid;
+  gap: 7px;
+  color: #344054;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.form-field input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  color: #172033;
+  background: #ffffff;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+}
+
+.form-field input:focus {
+  border-color: #ff6f23;
+  outline: 3px solid rgba(255, 111, 35, 0.16);
+}
+
+.login-error {
+  padding: 10px 12px;
+  color: #b91c1c !important;
+  font-size: 14px;
+  font-weight: 700;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+}
+
+.login-button {
+  min-height: 44px;
+  color: #ffffff;
+  font-weight: 800;
+  background: #ff6f23;
+  border: 0;
+  border-radius: 8px;
+}
+
+.login-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
 .dashboard-layout {
   display: grid;
   grid-template-columns: 268px minmax(0, 1fr);
@@ -170,8 +261,10 @@ button {
 .current-user {
   display: inline-flex;
   align-items: center;
+  gap: 12px;
   min-height: 42px;
-  padding: 0 16px;
+  max-width: 100%;
+  padding: 8px 10px 8px 16px;
   color: #172033;
   font-weight: 800;
   background: #ffffff;
@@ -182,11 +275,48 @@ button {
 
 .current-user::before {
   content: "";
+  flex: 0 0 auto;
   width: 9px;
   height: 9px;
-  margin-right: 9px;
   background: #ff6f23;
   border-radius: 50%;
+}
+
+.current-user__details {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.current-user__details span,
+.current-user__details small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.current-user__details small {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.logout-button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 12px;
+  color: #9a3412;
+  font-size: 13px;
+  font-weight: 800;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+}
+
+.logout-button:hover {
+  color: #ffffff;
+  background: #d9480f;
+  border-color: #d9480f;
 }
 
 .stats-grid {

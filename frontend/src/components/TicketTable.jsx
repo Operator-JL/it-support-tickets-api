@@ -18,7 +18,7 @@ function TicketTable({ tickets, onStatusChange, onDeleteTicket }) {
       <div className="section-heading">
         <div>
           <h2>Tickets recientes</h2>
-          <p>Administracion visual de solicitudes de soporte</p>
+          <p>Administración visual de solicitudes de soporte</p>
         </div>
         <span>{tickets.length} registros</span>
       </div>
