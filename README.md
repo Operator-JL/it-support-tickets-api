@@ -14,6 +14,7 @@ El backend permite registrar usuarios, iniciar sesion, consultar el perfil auten
 - bcrypt
 - dotenv
 - nodemon para desarrollo
+- React y Vite para el frontend
 - Resend instalado para una fase futura
 - Socket.IO instalado para una fase futura
 
@@ -25,7 +26,7 @@ El backend permite registrar usuarios, iniciar sesion, consultar el perfil auten
 - Tickets con flujo basico: abierto, en proceso y cerrado.
 - Comentarios asociados a tickets.
 - Resend y Socket.IO estan instalados/preparados, pero todavia no estan integrados en el flujo principal.
-- No hay frontend en esta fase.
+- Frontend Vite/React separado en la carpeta `frontend/`.
 
 ## Estructura principal
 
@@ -45,17 +46,37 @@ src/
     ticketsRoutes.js
     ticketCommentsRoutes.js
   server.js
+
+frontend/
+  index.html
+  vite.config.mjs
+  package.json
+  src/
+    App.jsx
+    main.jsx
+    index.css
+    assets/
+    components/
+    data/
+    pages/
 ```
 
 ## Instalacion
 
-Instala las dependencias:
+Instala las dependencias del backend desde la raiz del proyecto:
 
 ```bash
 npm install
 ```
 
 Crea un archivo `.env` basado en `.env.example` y configura las variables necesarias para tu entorno local.
+
+Instala las dependencias del frontend desde la carpeta `frontend/`:
+
+```bash
+cd frontend
+npm install
+```
 
 ## Variables de entorno
 
@@ -83,13 +104,15 @@ Los correos no estan activos todavia.
 
 ## Comandos
 
-Ejecutar en modo normal:
+### Backend
+
+Ejecutar el backend en modo normal desde la raiz:
 
 ```bash
 npm start
 ```
 
-Ejecutar en modo desarrollo con nodemon:
+Ejecutar el backend en modo desarrollo con nodemon desde la raiz:
 
 ```bash
 npm run dev
@@ -105,6 +128,22 @@ URL local:
 
 ```text
 http://localhost:3000
+```
+
+### Frontend
+
+Ejecutar el frontend desde la carpeta `frontend/`:
+
+```bash
+cd frontend
+npm run dev
+```
+
+Generar build del frontend:
+
+```bash
+cd frontend
+npm run build
 ```
 
 ## Health check
