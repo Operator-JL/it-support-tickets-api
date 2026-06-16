@@ -1,9 +1,9 @@
-import { AlertTriangle, ClipboardList, Gauge, ShieldAlert } from "lucide-react";
-import { useMemo, useState } from "react";
+import { AlertTriangle, CheckCircle2, ClipboardList, Gauge } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import Sidebar from "../components/Sidebar.jsx";
 import StatCard from "../components/StatCard.jsx";
 import TicketTable from "../components/TicketTable.jsx";
-import { demoTickets } from "../data/mockData.js";
+import { getTickets } from "../services/api.js";
 
 const roleLabels = {
   admin: "Administrador",
@@ -11,15 +11,57 @@ const roleLabels = {
   user: "Usuario",
 };
 
-function AdminDashboard({ user, onLogout }) {
-  const [tickets, setTickets] = useState(demoTickets);
+function getTicketStatus(ticket) {
+  return String(ticket.status || ticket.Status || "").trim();
+}
+
+function AdminDashboard({ token, user, onLogout }) {
+  const [tickets, setTickets] = useState([]);
+  const [isLoadingTickets, setIsLoadingTickets] = useState(true);
+  const [ticketsError, setTicketsError] = useState("");
   const userName = user?.name || user?.email || "Usuario";
   const userRole = roleLabels[(user?.role || "").toLowerCase()] || "Usuario";
 
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadTickets() {
+      setIsLoadingTickets(true);
+      setTicketsError("");
+
+      try {
+        const ticketsData = await getTickets(token);
+        const nextTickets = Array.isArray(ticketsData.tickets)
+          ? ticketsData.tickets
+          : [];
+
+        if (isActive) {
+          setTickets(nextTickets);
+        }
+      } catch (error) {
+        if (isActive) {
+          setTickets([]);
+          setTicketsError(error.message || "No se pudieron cargar los tickets.");
+        }
+      } finally {
+        if (isActive) {
+          setIsLoadingTickets(false);
+        }
+      }
+    }
+
+    loadTickets();
+
+    return () => {
+      isActive = false;
+    };
+  }, [token]);
+
   const stats = useMemo(() => {
-    const highPriority = tickets.filter((ticket) =>
-      ["Alta", "Urgente"].includes(ticket.priority)
-    ).length;
+    const countByStatus = (status) =>
+      tickets.filter(
+        (ticket) => getTicketStatus(ticket).toLowerCase() === status.toLowerCase()
+      ).length;
 
     return [
       {
@@ -30,42 +72,28 @@ function AdminDashboard({ user, onLogout }) {
         tone: "orange",
       },
       {
-        title: "Alta prioridad",
-        value: highPriority,
-        helper: "Incluye urgentes",
-        icon: ShieldAlert,
+        title: "Abiertos",
+        value: countByStatus("Abierto"),
+        helper: "Pendientes de atención",
+        icon: AlertTriangle,
         tone: "red",
       },
       {
-        title: "Media prioridad",
-        value: tickets.filter((ticket) => ticket.priority === "Media").length,
-        helper: "Requieren seguimiento",
+        title: "En proceso",
+        value: countByStatus("En proceso"),
+        helper: "En seguimiento",
         icon: Gauge,
         tone: "amber",
       },
       {
-        title: "Baja prioridad",
-        value: tickets.filter((ticket) => ticket.priority === "Baja").length,
-        helper: "Atencion programable",
-        icon: AlertTriangle,
+        title: "Cerrados",
+        value: countByStatus("Cerrado"),
+        helper: "Finalizados",
+        icon: CheckCircle2,
         tone: "green",
       },
     ];
   }, [tickets]);
-
-  const handleStatusChange = (ticketId, nextStatus) => {
-    setTickets((currentTickets) =>
-      currentTickets.map((ticket) =>
-        ticket.id === ticketId ? { ...ticket, status: nextStatus } : ticket
-      )
-    );
-  };
-
-  const handleDeleteTicket = (ticketId) => {
-    setTickets((currentTickets) =>
-      currentTickets.filter((ticket) => ticket.id !== ticketId)
-    );
-  };
 
   return (
     <div className="dashboard-layout">
@@ -102,11 +130,19 @@ function AdminDashboard({ user, onLogout }) {
           ))}
         </section>
 
-        <TicketTable
-          tickets={tickets}
-          onStatusChange={handleStatusChange}
-          onDeleteTicket={handleDeleteTicket}
-        />
+        {isLoadingTickets && (
+          <section className="tickets-panel">
+            <div className="empty-state">Cargando tickets...</div>
+          </section>
+        )}
+
+        {!isLoadingTickets && ticketsError && (
+          <section className="tickets-panel">
+            <div className="empty-state empty-state--error">{ticketsError}</div>
+          </section>
+        )}
+
+        {!isLoadingTickets && !ticketsError && <TicketTable tickets={tickets} />}
       </main>
     </div>
   );

@@ -22,7 +22,9 @@ async function request(path, options = {}) {
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(getFriendlyErrorMessage(data.message));
+      const error = new Error(getFriendlyErrorMessage(data.message));
+      error.status = response.status;
+      throw error;
     }
 
     return data;
@@ -51,4 +53,27 @@ export function getProfile(token) {
       Authorization: `Bearer ${token}`,
     },
   });
+}
+
+export async function getTickets(token) {
+  try {
+    return await request("/tickets", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  } catch (error) {
+    if (error.status === 401) {
+      throw new Error("Sesión inválida o expirada.");
+    }
+
+    if (
+      error.message === "Sesión inválida o expirada." ||
+      error.message === "No se pudo conectar con el servidor."
+    ) {
+      throw error;
+    }
+
+    throw new Error("No se pudieron cargar los tickets.");
+  }
 }

@@ -87,7 +87,7 @@ function App() {
     return <LoginPage onLogin={handleLogin} sessionMessage={sessionMessage} />;
   }
 
-  return <AdminDashboard onLogout={handleLogout} user={user} />;
+  return <AdminDashboard onLogout={handleLogout} token={token} user={user} />;
 }
 
 export default App;
