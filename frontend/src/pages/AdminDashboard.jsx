@@ -1,9 +1,25 @@
-import { AlertTriangle, CheckCircle2, ClipboardList, Gauge } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ClipboardList,
+  Gauge,
+  RefreshCw,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Sidebar from "../components/Sidebar.jsx";
 import StatCard from "../components/StatCard.jsx";
+import TicketDetails from "../components/TicketDetails.jsx";
+import TicketForm from "../components/TicketForm.jsx";
 import TicketTable from "../components/TicketTable.jsx";
-import { getTickets } from "../services/api.js";
+import ReportsPage from "./ReportsPage.jsx";
+import SettingsPage from "./SettingsPage.jsx";
+import UsersPage from "./UsersPage.jsx";
+import {
+  createTicket,
+  deleteTicket,
+  getTickets,
+  updateTicketStatus,
+} from "../services/api.js";
 
 const roleLabels = {
   admin: "Administrador",
@@ -11,51 +27,73 @@ const roleLabels = {
   user: "Usuario",
 };
 
+const sectionCopy = {
+  dashboard: {
+    title: "Panel principal",
+    subtitle: "Resumen general de tickets",
+  },
+  tickets: {
+    title: "Tickets",
+    subtitle: "Crea, revisa y da seguimiento a solicitudes reales",
+  },
+  users: {
+    title: "Usuarios",
+    subtitle: "Administración mínima de roles para la demo",
+  },
+  reports: {
+    title: "Reportes",
+    subtitle: "Indicadores calculados con tickets reales",
+  },
+  settings: {
+    title: "Configuración",
+    subtitle: "Información de sesión y entrega local",
+  },
+};
+
 function getTicketStatus(ticket) {
   return String(ticket.status || ticket.Status || "").trim();
 }
 
+function getTicketId(ticket) {
+  return ticket.id || ticket.Id;
+}
+
 function AdminDashboard({ token, user, onLogout }) {
+  const [activeSection, setActiveSection] = useState("dashboard");
   const [tickets, setTickets] = useState([]);
+  const [selectedTicket, setSelectedTicket] = useState(null);
   const [isLoadingTickets, setIsLoadingTickets] = useState(true);
+  const [isSavingTicket, setIsSavingTicket] = useState(false);
+  const [updatingTicketId, setUpdatingTicketId] = useState("");
   const [ticketsError, setTicketsError] = useState("");
+  const [actionError, setActionError] = useState("");
   const userName = user?.name || user?.email || "Usuario";
   const userRole = roleLabels[(user?.role || "").toLowerCase()] || "Usuario";
+  const currentSection = sectionCopy[activeSection] || sectionCopy.dashboard;
+
+  const loadTickets = useCallback(async () => {
+    setIsLoadingTickets(true);
+    setTicketsError("");
+    setActionError("");
+
+    try {
+      const ticketsData = await getTickets(token);
+      const nextTickets = Array.isArray(ticketsData.tickets)
+        ? ticketsData.tickets
+        : [];
+
+      setTickets(nextTickets);
+    } catch (error) {
+      setTickets([]);
+      setTicketsError(error.message || "No se pudieron cargar los tickets.");
+    } finally {
+      setIsLoadingTickets(false);
+    }
+  }, [token]);
 
   useEffect(() => {
-    let isActive = true;
-
-    async function loadTickets() {
-      setIsLoadingTickets(true);
-      setTicketsError("");
-
-      try {
-        const ticketsData = await getTickets(token);
-        const nextTickets = Array.isArray(ticketsData.tickets)
-          ? ticketsData.tickets
-          : [];
-
-        if (isActive) {
-          setTickets(nextTickets);
-        }
-      } catch (error) {
-        if (isActive) {
-          setTickets([]);
-          setTicketsError(error.message || "No se pudieron cargar los tickets.");
-        }
-      } finally {
-        if (isActive) {
-          setIsLoadingTickets(false);
-        }
-      }
-    }
-
     loadTickets();
-
-    return () => {
-      isActive = false;
-    };
-  }, [token]);
+  }, [loadTickets]);
 
   const stats = useMemo(() => {
     const countByStatus = (status) =>
@@ -95,28 +133,146 @@ function AdminDashboard({ token, user, onLogout }) {
     ];
   }, [tickets]);
 
-  return (
-    <div className="dashboard-layout">
-      <Sidebar />
+  function replaceTicket(nextTicket) {
+    setTickets((current) =>
+      current.map((ticket) =>
+        Number(getTicketId(ticket)) === Number(getTicketId(nextTicket))
+          ? nextTicket
+          : ticket
+      )
+    );
+  }
 
-      <main className="dashboard-main">
-        <header className="topbar">
-          <div>
-            <p className="eyebrow">Sistema Interno de Soporte Técnico</p>
-            <h1>Panel principal</h1>
-            <p>Resumen general de tickets</p>
-          </div>
-          <div className="current-user" aria-label="Usuario actual">
-            <div className="current-user__details">
-              <span>{userName}</span>
-              <small>{userRole}</small>
+  async function handleCreateTicket(ticketData) {
+    setIsSavingTicket(true);
+    setActionError("");
+
+    try {
+      const data = await createTicket(token, ticketData);
+      setTickets((current) => [data.ticket, ...current]);
+      setActiveSection("tickets");
+    } catch (error) {
+      setActionError(error.message || "No se pudo crear el ticket.");
+      throw error;
+    } finally {
+      setIsSavingTicket(false);
+    }
+  }
+
+  async function handleStatusChange(ticket, status) {
+    const ticketId = getTicketId(ticket);
+    setUpdatingTicketId(ticketId);
+    setActionError("");
+
+    try {
+      const data = await updateTicketStatus(token, ticketId, status);
+      replaceTicket(data.ticket);
+      if (Number(getTicketId(selectedTicket || {})) === Number(ticketId)) {
+        setSelectedTicket(data.ticket);
+      }
+    } catch (error) {
+      setActionError(error.message || "No se pudo actualizar el estado.");
+    } finally {
+      setUpdatingTicketId("");
+    }
+  }
+
+  function handleTicketSaved(ticket) {
+    replaceTicket(ticket);
+    setSelectedTicket(ticket);
+  }
+
+  async function handleDeleteTicket(ticket) {
+    const ticketId = getTicketId(ticket);
+    const title = ticket.title || ticket.Title || `ticket #${ticketId}`;
+
+    if (!window.confirm(`¿Eliminar "${title}"?`)) {
+      return;
+    }
+
+    setUpdatingTicketId(ticketId);
+    setActionError("");
+
+    try {
+      await deleteTicket(token, ticketId);
+      setTickets((current) =>
+        current.filter((item) => Number(getTicketId(item)) !== Number(ticketId))
+      );
+      if (Number(getTicketId(selectedTicket || {})) === Number(ticketId)) {
+        setSelectedTicket(null);
+      }
+    } catch (error) {
+      setActionError(error.message || "No se pudo eliminar el ticket.");
+    } finally {
+      setUpdatingTicketId("");
+    }
+  }
+
+  function renderTicketsTable({ compact = false } = {}) {
+    if (isLoadingTickets) {
+      return (
+        <section className="tickets-panel">
+          <div className="empty-state">Cargando tickets...</div>
+        </section>
+      );
+    }
+
+    if (ticketsError) {
+      return (
+        <section className="tickets-panel">
+          <div className="empty-state empty-state--error">{ticketsError}</div>
+        </section>
+      );
+    }
+
+    return (
+      <TicketTable
+        tickets={compact ? tickets.slice(0, 6) : tickets}
+        user={user}
+        title={compact ? "Últimos tickets" : "Tickets registrados"}
+        description={
+          compact
+            ? "Actividad reciente del sistema"
+            : "Seguimiento completo de solicitudes de soporte"
+        }
+        emptyMessage="No hay tickets registrados."
+        onView={setSelectedTicket}
+        onStatusChange={handleStatusChange}
+        onDelete={handleDeleteTicket}
+        updatingTicketId={updatingTicketId}
+      />
+    );
+  }
+
+  function renderContent() {
+    if (activeSection === "tickets") {
+      return (
+        <div className="view-stack">
+          {actionError && (
+            <div className="empty-state empty-state--error rounded-lg bg-white">
+              {actionError}
             </div>
-            <button className="logout-button" onClick={onLogout} type="button">
-              Salir
-            </button>
-          </div>
-        </header>
+          )}
+          <TicketForm onSubmit={handleCreateTicket} saving={isSavingTicket} />
+          {renderTicketsTable()}
+        </div>
+      );
+    }
 
+    if (activeSection === "users") {
+      return <UsersPage token={token} user={user} />;
+    }
+
+    if (activeSection === "reports") {
+      return <ReportsPage tickets={tickets} isLoading={isLoadingTickets} />;
+    }
+
+    if (activeSection === "settings") {
+      return <SettingsPage user={user} />;
+    }
+
+    return (
+      <div className="view-stack">
         <section className="stats-grid" aria-label="Estadísticas de tickets">
           {stats.map((stat) => (
             <StatCard
@@ -129,21 +285,67 @@ function AdminDashboard({ token, user, onLogout }) {
             />
           ))}
         </section>
-
-        {isLoadingTickets && (
-          <section className="tickets-panel">
-            <div className="empty-state">Cargando tickets...</div>
-          </section>
+        {actionError && (
+          <div className="empty-state empty-state--error rounded-lg bg-white">
+            {actionError}
+          </div>
         )}
+        {renderTicketsTable({ compact: true })}
+      </div>
+    );
+  }
 
-        {!isLoadingTickets && ticketsError && (
-          <section className="tickets-panel">
-            <div className="empty-state empty-state--error">{ticketsError}</div>
-          </section>
-        )}
+  return (
+    <div className="dashboard-layout">
+      <Sidebar
+        activeSection={activeSection}
+        onNavigate={(section) => {
+          setActiveSection(section);
+          setActionError("");
+        }}
+      />
 
-        {!isLoadingTickets && !ticketsError && <TicketTable tickets={tickets} />}
+      <main className="dashboard-main">
+        <header className="topbar">
+          <div>
+            <p className="eyebrow">Sistema Interno de Soporte Técnico</p>
+            <h1>{currentSection.title}</h1>
+            <p>{currentSection.subtitle}</p>
+          </div>
+          <div className="topbar__actions">
+            <button
+              className="refresh-button"
+              disabled={isLoadingTickets}
+              onClick={loadTickets}
+              type="button"
+            >
+              <RefreshCw size={16} />
+              Actualizar
+            </button>
+            <div className="current-user" aria-label="Usuario actual">
+              <div className="current-user__details">
+                <span>{userName}</span>
+                <small>{userRole}</small>
+              </div>
+              <button className="logout-button" onClick={onLogout} type="button">
+                Salir
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {renderContent()}
       </main>
+
+      {selectedTicket && (
+        <TicketDetails
+          ticket={selectedTicket}
+          token={token}
+          user={user}
+          onClose={() => setSelectedTicket(null)}
+          onSaved={handleTicketSaved}
+        />
+      )}
     </div>
   );
 }

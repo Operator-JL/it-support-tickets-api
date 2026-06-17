@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 :root {
   color: #1f2937;
   background: #f4f6fb;
@@ -36,27 +38,63 @@ button {
   place-items: center;
   padding: 24px;
   background:
-    radial-gradient(circle at top right, rgba(255, 111, 35, 0.14), transparent 28rem),
-    #f4f6fb;
+    radial-gradient(circle at top right, rgba(255, 111, 35, 0.23), transparent 30rem),
+    radial-gradient(circle at bottom left, rgba(185, 28, 28, 0.2), transparent 24rem),
+    #10131b;
 }
 
 .auth-loading {
-  color: #172033;
+  color: #f8fafc;
   font-weight: 800;
 }
 
 .login-card {
   width: min(100%, 420px);
   padding: 30px;
-  background: #ffffff;
-  border: 1px solid #e9edf4;
+  color: #f8fafc;
+  background: rgba(20, 24, 33, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
+}
+
+.login-brand {
+  display: grid;
+  grid-template-columns: 62px 1fr;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.login-brand__logo {
+  display: block;
+  width: 62px;
+  height: 62px;
+  object-fit: contain;
+  background: #ffffff;
+  border-radius: 8px;
+}
+
+.login-brand p {
+  margin: 0;
+  color: #ffb389;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.login-brand strong {
+  display: block;
+  margin-top: 3px;
+  color: #ffffff;
+  font-size: 18px;
+  line-height: 1.2;
 }
 
 .login-card h1 {
   margin: 4px 0 8px;
-  color: #121826;
+  color: #ffffff;
   font-size: 30px;
   line-height: 1.1;
   letter-spacing: 0;
@@ -64,7 +102,7 @@ button {
 
 .login-card p {
   margin: 0;
-  color: #667085;
+  color: #cbd5e1;
 }
 
 .login-form {
@@ -76,7 +114,7 @@ button {
 .form-field {
   display: grid;
   gap: 7px;
-  color: #344054;
+  color: #e2e8f0;
   font-size: 14px;
   font-weight: 800;
 }
@@ -85,15 +123,21 @@ button {
   width: 100%;
   min-height: 44px;
   padding: 0 12px;
-  color: #172033;
-  background: #ffffff;
-  border: 1px solid #d0d5dd;
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 8px;
 }
 
 .form-field input:focus {
   border-color: #ff6f23;
   outline: 3px solid rgba(255, 111, 35, 0.16);
+}
+
+.form-field input:-webkit-autofill,
+.form-field input:-webkit-autofill:hover,
+.form-field input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #111827;
 }
 
 .login-error {
@@ -237,6 +281,14 @@ button {
   margin-bottom: 24px;
 }
 
+.topbar__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
 .topbar h1 {
   margin: 2px 0 4px;
   color: #121826;
@@ -317,6 +369,31 @@ button {
   color: #ffffff;
   background: #d9480f;
   border-color: #d9480f;
+}
+
+.refresh-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 13px;
+  color: #9a3412;
+  font-size: 13px;
+  font-weight: 800;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+}
+
+.refresh-button:hover {
+  color: #ffffff;
+  background: #d9480f;
+  border-color: #d9480f;
+}
+
+.view-stack {
+  display: grid;
+  gap: 18px;
 }
 
 .stats-grid {
@@ -537,6 +614,13 @@ button {
   border-radius: 8px;
 }
 
+.ticket-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
 .ticket-select--abierto {
   border-color: #fdba74;
   background: #fff7ed;
@@ -604,6 +688,23 @@ button {
   border-color: #dc2626;
 }
 
+.icon-button:hover {
+  color: #ffffff;
+  background: #d9480f;
+  border-color: #d9480f;
+}
+
+.icon-button--danger:hover {
+  color: #ffffff;
+  background: #dc2626;
+  border-color: #dc2626;
+}
+
+.icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .empty-state {
   padding: 28px;
   color: #667085;
@@ -650,6 +751,11 @@ button {
   .topbar {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .topbar__actions {
+    justify-content: flex-start;
+    width: 100%;
   }
 
   .stats-grid {

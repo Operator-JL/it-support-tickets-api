@@ -1,10 +1,12 @@
 # SIST - IT Support Tickets API
 
-API REST para SIST: Sistema Interno de Soporte Tecnico. El proyecto esta construido con Node.js, Express, SQL Server y autenticacion JWT.
+SIST es un sistema interno de tickets de soporte IT. El backend esta construido con Node.js, Express, SQL Server y JWT. El frontend esta construido con Vite, React y Tailwind CSS.
 
-El backend permite registrar usuarios, iniciar sesion, consultar el perfil autenticado, crear tickets, administrar su estado y agregar comentarios con reglas basicas de roles y ownership.
+El proyecto esta pensado como demo escolar y de portafolio: simple, claro, funcional y facil de explicar.
 
 ## Tecnologias
+
+### Backend
 
 - Node.js
 - Express
@@ -14,19 +16,36 @@ El backend permite registrar usuarios, iniciar sesion, consultar el perfil auten
 - bcrypt
 - dotenv
 - nodemon para desarrollo
-- React y Vite para el frontend
-- Resend instalado para una fase futura
-- Socket.IO instalado para una fase futura
+
+### Frontend
+
+- Vite
+- React
+- Tailwind CSS
+- lucide-react
+
+### Preparado para futuro
+
+- Resend esta instalado/preparado, pero no esta integrado al flujo principal.
+- Socket.IO esta instalado/preparado, pero no esta integrado al flujo principal.
 
 ## Estado actual
 
-- Backend REST funcional.
-- Autenticacion con JWT Bearer Token.
-- Rutas privadas protegidas con middleware de autenticacion.
-- Tickets con flujo basico: abierto, en proceso y cerrado.
-- Comentarios asociados a tickets.
-- Resend y Socket.IO estan instalados/preparados, pero todavia no estan integrados en el flujo principal.
-- Frontend Vite/React separado en la carpeta `frontend/`.
+- Login con JWT.
+- Registro de usuarios.
+- Perfil autenticado.
+- Dashboard con tickets reales.
+- Navegacion lateral local en el frontend.
+- Listado de tickets reales desde la API.
+- Creacion de tickets reales.
+- Detalle de ticket.
+- Comentarios en tickets.
+- Cambio de estado de tickets para `it` y `admin`.
+- Eliminacion de tickets solo para `admin`.
+- Pantalla de usuarios para `admin`.
+- Cambio de rol de usuarios para `admin`.
+- Reportes calculados con tickets reales.
+- Pantalla de configuracion informativa.
 
 ## Estructura principal
 
@@ -38,6 +57,7 @@ src/
     authController.js
     ticketsController.js
     ticketCommentsController.js
+    usersController.js
   middlewares/
     authMiddleware.js
     roleMiddleware.js
@@ -45,6 +65,7 @@ src/
     authRoutes.js
     ticketsRoutes.js
     ticketCommentsRoutes.js
+    usersRoutes.js
   server.js
 
 frontend/
@@ -57,21 +78,19 @@ frontend/
     index.css
     assets/
     components/
-    data/
     pages/
+    services/
 ```
 
 ## Instalacion
 
-Instala las dependencias del backend desde la raiz del proyecto:
+Instala dependencias del backend desde la raiz:
 
 ```bash
 npm install
 ```
 
-Crea un archivo `.env` basado en `.env.example` y configura las variables necesarias para tu entorno local.
-
-Instala las dependencias del frontend desde la carpeta `frontend/`:
+Instala dependencias del frontend:
 
 ```bash
 cd frontend
@@ -80,15 +99,18 @@ npm install
 
 ## Variables de entorno
 
-Variables actuales esperadas:
+No subas el `.env` real al repositorio. Usa `.env.example` y `frontend/.env.example` como referencia.
+
+### Backend `.env`
 
 ```env
-PORT=
+PORT=3000
 DB_USER=
 DB_PASSWORD=
 DB_SERVER=
 DB_DATABASE=
 JWT_SECRET=
+FRONTEND_URL=http://localhost:5173
 ```
 
 Variables preparadas para una fase futura con Resend:
@@ -100,28 +122,26 @@ EMAIL_TO=
 EMAIL_ENABLED=false
 ```
 
-Los correos no estan activos todavia.
+### Frontend `frontend/.env`
+
+```env
+VITE_API_URL=http://localhost:3000
+```
 
 ## Comandos
 
 ### Backend
 
-Ejecutar el backend en modo normal desde la raiz:
+Instalar dependencias:
 
 ```bash
-npm start
+npm install
 ```
 
-Ejecutar el backend en modo desarrollo con nodemon desde la raiz:
+Ejecutar en desarrollo:
 
 ```bash
 npm run dev
-```
-
-Tambien se puede ejecutar directamente:
-
-```bash
-node src/server.js
 ```
 
 URL local:
@@ -132,18 +152,28 @@ http://localhost:3000
 
 ### Frontend
 
-Ejecutar el frontend desde la carpeta `frontend/`:
+Instalar dependencias:
 
 ```bash
-cd frontend
-npm run dev
+cd frontend && npm install
 ```
 
-Generar build del frontend:
+Ejecutar en desarrollo:
 
 ```bash
-cd frontend
-npm run build
+cd frontend && npm run dev
+```
+
+Generar build:
+
+```bash
+cd frontend && npm run build
+```
+
+URL local usual:
+
+```text
+http://localhost:5173
 ```
 
 ## Health check
@@ -169,16 +199,16 @@ Las rutas protegidas requieren el token JWT en el header:
 Authorization: Bearer <token>
 ```
 
-El token se obtiene al iniciar sesion con `POST /login`.
+El token se obtiene con `POST /login`.
 
-El token incluye datos basicos del usuario autenticado:
+El token incluye:
 
 - `id`
 - `name`
 - `email`
 - `role`
 
-## Roles y permisos
+## Roles
 
 Roles disponibles:
 
@@ -186,15 +216,15 @@ Roles disponibles:
 - `it`
 - `admin`
 
-Reglas actuales:
+Permisos principales:
 
-- `user`: puede crear tickets, ver sus propios tickets, ver detalle de sus propios tickets y comentar en sus propios tickets.
-- `it`: puede ver todos los tickets, actualizar tickets, cambiar estado y comentar en cualquier ticket.
-- `admin`: tiene los mismos permisos que `it` y ademas puede borrar tickets.
+- `user`: puede crear tickets, ver sus propios tickets, ver detalle de sus tickets y comentar en sus tickets.
+- `it`: puede ver todos los tickets, editar tickets, cambiar estado y comentar.
+- `admin`: puede hacer lo mismo que `it`, borrar tickets, ver usuarios y cambiar roles.
 
-El registro publico siempre crea usuarios con role `user`. Para una demo, un usuario puede convertirse manualmente a `it` o `admin` desde SQL Server.
+El registro publico crea usuarios con rol `user`. Para probar permisos de `it` o `admin`, cambia el rol desde SQL Server o desde la pantalla de Usuarios usando una cuenta admin.
 
-## Endpoints reales
+## Rutas principales
 
 ### Auth
 
@@ -212,23 +242,40 @@ GET /profile
 Todas las rutas de tickets requieren autenticacion.
 
 ```http
-POST /tickets
 GET /tickets
 GET /tickets/my
 GET /tickets/:id
-PUT /tickets/:id
+POST /tickets
 PATCH /tickets/:id/status
 DELETE /tickets/:id
 ```
 
+Notas:
+
+- `GET /tickets` devuelve solo tickets propios para `user`.
+- `GET /tickets` devuelve todos los tickets para `it` y `admin`.
+- `PATCH /tickets/:id/status` requiere rol `it` o `admin`.
+- `DELETE /tickets/:id` requiere rol `admin`.
+
 ### Comentarios
 
-Todas las rutas de comentarios requieren autenticacion.
+Las rutas de comentarios requieren autenticacion.
 
 ```http
 POST /tickets/:ticketId/comments
 GET /tickets/:ticketId/comments
 ```
+
+### Usuarios
+
+Las rutas de usuarios requieren autenticacion y rol `admin`.
+
+```http
+GET /users
+PATCH /users/:id/role
+```
+
+`GET /users` no devuelve `PasswordHash`.
 
 ## Ejemplos JSON
 
@@ -246,8 +293,6 @@ Content-Type: application/json
   "password": "demo123"
 }
 ```
-
-El usuario registrado queda con role `user` por defecto.
 
 ### Login
 
@@ -282,14 +327,14 @@ Content-Type: application/json
 
 Prioridades validas:
 
-- Baja
-- Media
-- Alta
-- Urgente
+- `Baja`
+- `Media`
+- `Alta`
+- `Urgente`
 
-Si no se envia `priority`, se usa `Media` como valor por defecto.
+Si no se envia `priority`, se usa `Media`.
 
-### Cambiar estado del ticket
+### Cambiar estado
 
 ```http
 PATCH /tickets/:id/status
@@ -305,9 +350,9 @@ Content-Type: application/json
 
 Estados validos:
 
-- Abierto
-- En proceso
-- Cerrado
+- `Abierto`
+- `En proceso`
+- `Cerrado`
 
 Cuando el estado cambia a `Cerrado`, se actualiza `closed_at`.
 
@@ -325,56 +370,79 @@ Content-Type: application/json
 }
 ```
 
+### Cambiar rol de usuario
+
+```http
+PATCH /users/:id/role
+Authorization: Bearer <admin-token>
+Content-Type: application/json
+```
+
+```json
+{
+  "role": "it"
+}
+```
+
+Roles validos:
+
+- `user`
+- `it`
+- `admin`
+
+Despues de cambiar un rol, el usuario debe iniciar sesion otra vez para obtener un JWT nuevo con el rol actualizado.
+
 ## Base de datos
 
-El archivo `database.sql` contiene un script base para crear las tablas esperadas por el proyecto en SQL Server:
+Tablas principales:
 
-- Users
+- `Users`
+- `Tickets`
+- `TicketComments`
+
+Columnas reales esperadas en `Users`:
+
+- `id`
+- `name`
+- `email`
+- `PasswordHash`
+- `role`
+- `is_active`
+- `created_at`
+
+El archivo `database.sql` contiene un script base para crear las tablas esperadas. No uses scripts destructivos como `DROP TABLE` o `DROP DATABASE` para la demo.
+
+## Frontend
+
+El frontend vive en `frontend/` y usa Vite + React + Tailwind CSS.
+
+Pantallas actuales:
+
+- Login
+- Panel principal
 - Tickets
-- TicketComments
+- Usuarios
+- Reportes
+- Configuracion
 
-El script usa `IF OBJECT_ID(...) IS NULL` para evitar errores si las tablas ya existen.
+La navegacion lateral se maneja localmente con React state, sin React Router.
 
-Si tu tabla `Users` ya existia antes de agregar roles, puedes ejecutar el script completo o aplicar manualmente una migracion similar:
+## Notas de seguridad
 
-```sql
-ALTER TABLE dbo.Users
-ADD Role NVARCHAR(20) NOT NULL DEFAULT ('user') WITH VALUES;
-```
-
-Para preparar usuarios de demo con permisos elevados:
-
-```sql
-UPDATE Users SET role = 'admin' WHERE email = 'admin@example.com';
-UPDATE Users SET role = 'it' WHERE email = 'soporte@example.com';
-```
-
-Despues de cambiar el role en SQL Server, vuelve a hacer login para obtener un JWT nuevo con el role actualizado.
+- No subir `.env` real.
+- Usar `.env.example` para variables del backend.
+- Usar `frontend/.env.example` para variables del frontend.
+- No devolver `PasswordHash` en respuestas de usuarios.
+- Mantener rutas privadas protegidas con JWT.
+- Mantener acciones admin protegidas por rol `admin`.
 
 ## Fases futuras
 
-### Resend Email API
+Resend y Socket.IO siguen instalados/preparados para una fase futura, pero no estan integrados al flujo principal.
 
-Resend esta instalado, pero todavia no se usa en ningun controlador. Una integracion ordenada podria vivir en:
+Posibles mejoras futuras:
 
-```text
-src/services/emailService.js
-```
-
-Momentos recomendados para enviar correos en una fase futura:
-
-- Al crear un ticket.
-- Al cambiar el estado de un ticket.
-- Opcionalmente al cerrar un ticket.
-
-El envio de correo deberia estar aislado con `try/catch` para que un fallo de email no rompa la respuesta principal de la API.
-
-### Socket.IO
-
-Socket.IO esta instalado, pero no integrado todavia. Conviene dejarlo para una fase posterior, cuando el backend REST ya este cerrado para demo.
-
-Casos futuros:
-
-- Notificar tickets nuevos en tiempo real.
-- Notificar cambios de estado.
-- Mostrar comentarios nuevos sin recargar.
+- Notificaciones por correo al crear o cerrar tickets.
+- Notificaciones en tiempo real de tickets y comentarios.
+- Filtros avanzados de tickets.
+- Panel de configuracion persistente.

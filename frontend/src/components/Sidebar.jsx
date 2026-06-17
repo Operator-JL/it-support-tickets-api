@@ -8,14 +8,14 @@ import {
 import sistLogo from "../assets/brand/sist-logo.png";
 
 const menuItems = [
-  { label: "Panel principal", icon: LayoutDashboard, active: true },
-  { label: "Tickets", icon: ClipboardList },
-  { label: "Usuarios", icon: UsersRound },
-  { label: "Reportes", icon: BarChart3 },
-  { label: "Configuración", icon: Settings },
+  { id: "dashboard", label: "Panel principal", icon: LayoutDashboard },
+  { id: "tickets", label: "Tickets", icon: ClipboardList },
+  { id: "users", label: "Usuarios", icon: UsersRound },
+  { id: "reports", label: "Reportes", icon: BarChart3 },
+  { id: "settings", label: "Configuración", icon: Settings },
 ];
 
-function Sidebar() {
+function Sidebar({ activeSection, onNavigate }) {
   return (
     <aside className="sidebar">
       <div className="sidebar__brand">
@@ -25,13 +25,15 @@ function Sidebar() {
       <nav className="sidebar__nav" aria-label="Menú principal">
         {menuItems.map((item) => {
           const Icon = item.icon;
+          const isActive = activeSection === item.id;
 
           return (
             <button
-              className={`sidebar__link ${item.active ? "is-active" : ""}`}
-              key={item.label}
+              className={`sidebar__link ${isActive ? "is-active" : ""}`}
+              key={item.id}
+              onClick={() => onNavigate(item.id)}
               type="button"
-              aria-current={item.active ? "page" : undefined}
+              aria-current={isActive ? "page" : undefined}
             >
               <Icon size={20} strokeWidth={2.1} />
               <span>{item.label}</span>

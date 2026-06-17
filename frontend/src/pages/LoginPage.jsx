@@ -1,4 +1,5 @@
 import { useState } from "react";
+import sistLogo from "../assets/brand/sist-logo.png";
 
 function LoginPage({ onLogin, sessionMessage = "" }) {
   const [email, setEmail] = useState("");
@@ -23,7 +24,14 @@ function LoginPage({ onLogin, sessionMessage = "" }) {
   return (
     <main className="login-screen">
       <section className="login-card" aria-labelledby="login-title">
-        <p className="eyebrow">SIST</p>
+        <div className="login-brand">
+          <img src={sistLogo} alt="SIST" className="login-brand__logo" />
+          <div>
+            <p>SIST</p>
+            <strong>Sistema Interno de Soporte Técnico</strong>
+          </div>
+        </div>
+
         <h1 id="login-title">Iniciar sesión</h1>
         <p>Accede con tu usuario registrado en el servidor.</p>
 
