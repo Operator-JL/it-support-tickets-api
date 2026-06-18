@@ -1,12 +1,9 @@
--- SIST - clean SQL Server schema
--- Purpose:
---   Reproducible schema for a clean database that separates:
---   1) who created/reported a ticket, and
---   2) who is assigned to work on that ticket.
---
--- Safety:
---   This script does not use DROP DATABASE or DROP TABLE.
---   Run it on an empty database, or review existing tables first.
+-- antes solo tenia user_id en tickets y eso no dejaba claro si era el creador o el asignado
+-- ahora queda separado:
+-- user_id = usuario que crea o reporta el ticket
+-- assigned_to_user_id = usuario asignado para atenderlo
+-- el ticket queda con quien lo crea y con quien se le asigna
+-- este script crea la base y las tablas si no existen, no borra nada
 
 IF DB_ID('ITSupportTicketsDB') IS NULL
 BEGIN
@@ -17,6 +14,10 @@ GO
 USE ITSupportTicketsDB;
 GO
 
+-- tabla principal de usuarios
+-- aqui lo de usuarios normales, soporte y admins
+-- passwordhash guarda el hash de la contraseña, no la contraseña real
+-- email queda unico para evitar usuarios duplicados
 IF OBJECT_ID('dbo.Users', 'U') IS NULL
 BEGIN
   CREATE TABLE dbo.Users (
@@ -38,6 +39,11 @@ BEGIN
 END;
 GO
 
+-- tabla principal de tickets
+-- user_id no es el usuario asignado; es quien crea o reporta el ticket
+-- assigned_to_user_id es quien atiende el ticket y puede quedar null al inicio
+-- por eso esta tabla tiene dos relaciones hacia users
+-- updated_at inicia con getdate; el backend lo actualiza cuando se edita o cambia estado
 IF OBJECT_ID('dbo.Tickets', 'U') IS NULL
 BEGIN
   CREATE TABLE dbo.Tickets (
@@ -72,6 +78,10 @@ BEGIN
 END;
 GO
 
+-- tabla de comentarios del ticket
+-- ticket_id indica a que ticket pertenece el comentario
+-- user_id indica quien escribio el comentario
+-- asi se puede seguir el historial de atencion del ticket
 IF OBJECT_ID('dbo.TicketComments', 'U') IS NULL
 BEGIN
   CREATE TABLE dbo.TicketComments (
@@ -94,9 +104,9 @@ BEGIN
 END;
 GO
 
--- Verification queries
+-- consultar las comprobaciones
 
--- 1. View users.
+-- 1. ver usuarios sin mostrar passwordhash
 SELECT
   id,
   [name],
@@ -108,7 +118,7 @@ FROM dbo.Users
 ORDER BY created_at DESC;
 GO
 
--- 2. View tickets with creator user.
+-- 2. ver tickets con el usuario que los creo
 SELECT
   t.id AS ticket_id,
   t.title,
@@ -120,7 +130,8 @@ INNER JOIN dbo.Users creator ON creator.id = t.user_id
 ORDER BY t.created_at DESC;
 GO
 
--- 3. View tickets with creator and assigned user.
+-- 3. ver tickets con creador y usuario asignado
+-- una cosa es quien reporta y otra quien atiende
 SELECT
   t.id AS ticket_id,
   t.title,
@@ -133,7 +144,7 @@ LEFT JOIN dbo.Users assigned ON assigned.id = t.assigned_to_user_id
 ORDER BY t.created_at DESC;
 GO
 
--- 4. View comments with user and ticket.
+-- 4. ver comentarios con ticket y usuario que comento
 SELECT
   c.id AS comment_id,
   c.ticket_id,
