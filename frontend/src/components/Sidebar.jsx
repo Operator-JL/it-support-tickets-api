@@ -46,7 +46,7 @@ function Sidebar({ activeSection, onNavigate }) {
         <span className="sidebar__status-dot" />
         <div>
           <strong>SIST Administración</strong>
-          <small>Demo local</small>
+          <small>Soporte técnico</small>
         </div>
       </div>
     </aside>

@@ -23,15 +23,13 @@ function LoginPage({ onLogin, sessionMessage = "" }) {
 
   return (
     <main className="login-screen">
-      <section className="login-card" aria-labelledby="login-title">
-        <div className="login-brand">
-          <img src={sistLogo} alt="SIST" className="login-brand__logo" />
-          <div>
-            <p>SIST</p>
-            <strong>Sistema Interno de Soporte Técnico</strong>
-          </div>
-        </div>
+      <section className="login-hero" aria-label="Marca SIST">
+        <img src={sistLogo} alt="SIST" className="login-hero__logo" />
+        <h1>Sistema Interno de Soporte Técnico</h1>
+        <span>Soporte IT claro, rápido y organizado.</span>
+      </section>
 
+      <section className="login-card" aria-labelledby="login-title">
         <h1 id="login-title">Iniciar sesión</h1>
         <p>Accede con tu usuario registrado en el servidor.</p>
 
