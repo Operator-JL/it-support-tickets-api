@@ -176,6 +176,52 @@ URL local usual:
 http://localhost:5173
 ```
 
+## Guia rapida para demo
+
+Instala dependencias del backend:
+
+```bash
+npm install
+```
+
+Ejecuta el backend:
+
+```bash
+npm run dev
+```
+
+Instala dependencias del frontend:
+
+```bash
+cd frontend && npm install
+```
+
+Ejecuta el frontend:
+
+```bash
+cd frontend && npm run dev
+```
+
+Abre el frontend:
+
+```text
+http://localhost:5173
+```
+
+Inicia sesion con el usuario admin demo creado localmente.
+
+Flujo sugerido para presentar:
+
+1. Dashboard.
+2. Tickets.
+3. Crear ticket.
+4. Ver detalle de ticket.
+5. Agregar comentario.
+6. Cambiar estado.
+7. Usuarios.
+8. Reportes.
+9. Configuracion.
+
 ## Health check
 
 ```http
@@ -246,6 +292,7 @@ GET /tickets
 GET /tickets/my
 GET /tickets/:id
 POST /tickets
+PUT /tickets/:id
 PATCH /tickets/:id/status
 DELETE /tickets/:id
 ```
@@ -254,6 +301,7 @@ Notas:
 
 - `GET /tickets` devuelve solo tickets propios para `user`.
 - `GET /tickets` devuelve todos los tickets para `it` y `admin`.
+- `PUT /tickets/:id` requiere rol `it` o `admin`.
 - `PATCH /tickets/:id/status` requiere rol `it` o `admin`.
 - `DELETE /tickets/:id` requiere rol `admin`.
 
