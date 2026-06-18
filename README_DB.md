@@ -11,9 +11,9 @@ El objetivo del modelo es distinguir claramente entre:
 ## Archivos relacionados
 
 - `database.sql`: script anterior/base del proyecto.
-- `database_clean.sql`: script limpio y defendible para una base reproducible en SQL Server.
+- `database.sql`: script limpio y defendible para una base reproducible en SQL Server.
 
-`database_clean.sql` no usa `DROP DATABASE` ni `DROP TABLE`. Esta pensado para ejecutarse en una base vacia o para revisarse antes de aplicarlo sobre una base existente.
+`database.sql` no usa `DROP DATABASE` ni `DROP TABLE`. Esta pensado para ejecutarse en una base vacia o para revisarse antes de aplicarlo sobre una base existente.
 
 ## Tablas principales
 
@@ -179,10 +179,10 @@ El backend usa `bcrypt` para comparar la contrasena enviada en login contra este
 
 Esto permite autenticar usuarios sin guardar contrasenas reales en la base de datos.
 
-## Como correr `database_clean.sql`
+## Como correr `database.sql`
 
 1. Crear o seleccionar una base de datos de SQL Server para pruebas.
-2. Abrir `database_clean.sql` en SQL Server Management Studio o Azure Data Studio.
+2. Abrir `database.sql` en SQL Server Management Studio o Azure Data Studio.
 3. Confirmar que estas usando la base correcta.
 4. Ejecutar el script completo.
 5. Revisar que existan las tablas:
