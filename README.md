@@ -124,7 +124,7 @@ EMAIL_FROM=
 EMAIL_TO=
 ```
 
-Con `EMAIL_ENABLED=false`, la app no envia correos y sigue funcionando normal. Para activar envio real, usa `EMAIL_ENABLED=true`, una `RESEND_API_KEY` valida y correos configurados en `EMAIL_FROM` y `EMAIL_TO`.
+Resend es la API externa usada para correos. Con `EMAIL_ENABLED=false`, la demo se mantiene segura, no envia correos reales y la app sigue funcionando normal. Para activar envio real, usa `EMAIL_ENABLED=true`, una `RESEND_API_KEY` valida y correos configurados en `EMAIL_FROM` y `EMAIL_TO`.
 
 ### Frontend `frontend/.env`
 
@@ -179,6 +179,17 @@ URL local usual:
 ```text
 http://localhost:5173
 ```
+
+## Cuentas demo locales sugeridas
+
+Estas cuentas son solo para demo local. Deben crearse con `POST /register` o desde el flujo local que uses para preparar la demo; para cuentas `admin` o `it`, ajusta el rol localmente segun corresponda.
+
+- [admin@sist.local](mailto:admin@sist.local) / Admin123!
+- [it@sist.local](mailto:it@sist.local) / It123!
+- [usuario1@sist.local](mailto:usuario1@sist.local) / User123!
+- [usuario2@sist.local](mailto:usuario2@sist.local) / User123!
+
+No son credenciales reales y no deben usarse en produccion.
 
 ## Guia rapida para demo
 
@@ -464,6 +475,11 @@ Columnas reales esperadas en `Users`:
 
 El archivo `database.sql` contiene un script base para crear las tablas esperadas. No uses scripts destructivos como `DROP TABLE` o `DROP DATABASE` para la demo.
 
+Notas de `Tickets`:
+
+- `user_id` guarda el usuario que reporta o crea el ticket.
+- `assigned_to_user_id` esta preparado para una asignacion futura de responsables y puede ser `NULL`.
+
 ## Frontend
 
 El frontend vive en `frontend/` y usa Vite + React + Tailwind CSS.
@@ -490,7 +506,7 @@ La navegacion lateral se maneja localmente con React state, sin React Router.
 
 ## Integraciones actuales
 
-Socket.IO se usa para notificar al frontend cuando se crean, actualizan, cierran o eliminan tickets, y cuando se agregan comentarios.
+Socket.IO se usa para actualizar tickets y comentarios en tiempo real en el frontend cuando se crean, actualizan, cierran o eliminan tickets, y cuando se agregan comentarios.
 
 Resend se usa como API externa para enviar correos simples cuando se crea un ticket y cuando un ticket cambia a `Cerrado`. Si `EMAIL_ENABLED` no es `true`, si faltan variables de correo o si Resend falla, la app registra un warning y continua funcionando.
 

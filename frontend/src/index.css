@@ -731,12 +731,6 @@ button {
   border-color: #d9480f;
 }
 
-.icon-button--danger:hover {
-  color: #ffffff;
-  background: #dc2626;
-  border-color: #dc2626;
-}
-
 .icon-button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
