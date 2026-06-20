@@ -1,5 +1,6 @@
 const { sql, getConnection } = require('../config/db');
 const { isAdmin, isSupportRole } = require('../middlewares/roleMiddleware');
+const { sendTicketClosedEmail, sendTicketCreatedEmail } = require('../services/emailService');
 const { emitSocketEvent } = require('../services/socketService');
 
 const allowedStatuses = ['Abierto', 'En proceso', 'Cerrado'];
@@ -145,6 +146,7 @@ const createTicket = async (req, res) => {
 
     const ticket = mapTicket(result.recordset[0]);
     emitSocketEvent('ticket:created', { ticket });
+    sendTicketCreatedEmail(ticket);
 
     return res.status(201).json({
       status: 201,
@@ -416,6 +418,9 @@ const updateTicketStatus = async (req, res) => {
 
     const ticket = mapTicket(result.recordset[0]);
     emitSocketEvent('ticket:status-updated', { ticket });
+    if (ticket.status === 'Cerrado') {
+      sendTicketClosedEmail(ticket);
+    }
 
     return res.status(200).json({
       status: 200,

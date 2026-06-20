@@ -24,10 +24,10 @@ El proyecto esta pensado como demo escolar y de portafolio: simple, claro, funci
 - Tailwind CSS
 - lucide-react
 
-### Preparado para futuro
+### Integraciones
 
-- Resend esta instalado/preparado, pero no esta integrado al flujo principal.
-- Socket.IO esta instalado/preparado, pero no esta integrado al flujo principal.
+- Socket.IO esta integrado para avisar cambios de tickets en tiempo real al frontend.
+- Resend esta integrado como API externa para enviar correos al crear tickets y al cerrar tickets.
 
 ## Estado actual
 
@@ -46,6 +46,8 @@ El proyecto esta pensado como demo escolar y de portafolio: simple, claro, funci
 - Cambio de rol de usuarios para `admin`.
 - Reportes calculados con tickets reales.
 - Pantalla de configuracion informativa.
+- Actualizaciones de tickets en tiempo real con Socket.IO.
+- Notificaciones por correo con Resend cuando se activa `EMAIL_ENABLED=true`.
 
 ## Estructura principal
 
@@ -113,14 +115,16 @@ JWT_SECRET=
 FRONTEND_URL=http://localhost:5173
 ```
 
-Variables preparadas para una fase futura con Resend:
+Variables para notificaciones por correo con Resend:
 
 ```env
+EMAIL_ENABLED=false
 RESEND_API_KEY=
 EMAIL_FROM=
 EMAIL_TO=
-EMAIL_ENABLED=false
 ```
+
+Con `EMAIL_ENABLED=false`, la app no envia correos y sigue funcionando normal. Para activar envio real, usa `EMAIL_ENABLED=true`, una `RESEND_API_KEY` valida y correos configurados en `EMAIL_FROM` y `EMAIL_TO`.
 
 ### Frontend `frontend/.env`
 
@@ -484,13 +488,15 @@ La navegacion lateral se maneja localmente con React state, sin React Router.
 - Mantener rutas privadas protegidas con JWT.
 - Mantener acciones admin protegidas por rol `admin`.
 
-## Fases futuras
+## Integraciones actuales
 
-Resend y Socket.IO siguen instalados/preparados para una fase futura, pero no estan integrados al flujo principal.
+Socket.IO se usa para notificar al frontend cuando se crean, actualizan, cierran o eliminan tickets, y cuando se agregan comentarios.
+
+Resend se usa como API externa para enviar correos simples cuando se crea un ticket y cuando un ticket cambia a `Cerrado`. Si `EMAIL_ENABLED` no es `true`, si faltan variables de correo o si Resend falla, la app registra un warning y continua funcionando.
+
+## Fases futuras
 
 Posibles mejoras futuras:
 
-- Notificaciones por correo al crear o cerrar tickets.
-- Notificaciones en tiempo real de tickets y comentarios.
 - Filtros avanzados de tickets.
 - Panel de configuracion persistente.
