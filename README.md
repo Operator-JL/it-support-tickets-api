@@ -126,6 +126,8 @@ EMAIL_TO=
 
 Resend es la API externa usada para correos. Con `EMAIL_ENABLED=false`, la demo se mantiene segura, no envia correos reales y la app sigue funcionando normal. Para activar envio real, usa `EMAIL_ENABLED=true`, una `RESEND_API_KEY` valida y correos configurados en `EMAIL_FROM` y `EMAIL_TO`.
 
+`EMAIL_TO` puede contener un destinatario o varios destinatarios separados por coma. Para pruebas con `onboarding@resend.dev`, usa como destinatario el correo asociado a la cuenta de Resend. Para enviar a otros destinatarios o a varios correos reales, se recomienda verificar un dominio propio en Resend.
+
 ### Frontend `frontend/.env`
 
 ```env

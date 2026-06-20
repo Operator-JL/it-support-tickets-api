@@ -4,11 +4,22 @@ const isEmailEnabled = () => {
   return process.env.EMAIL_ENABLED === 'true';
 };
 
+const getEmailRecipients = (value) => {
+  if (!value) {
+    return [];
+  }
+
+  return String(value)
+    .split(',')
+    .map((email) => email.trim())
+    .filter(Boolean);
+};
+
 const getEmailConfig = () => {
   return {
     apiKey: process.env.RESEND_API_KEY,
     from: process.env.EMAIL_FROM,
-    to: process.env.EMAIL_TO
+    to: getEmailRecipients(process.env.EMAIL_TO)
   };
 };
 
@@ -47,7 +58,7 @@ const sendTicketEmail = async ({ subject, intro, ticket }) => {
 
   const { apiKey, from, to } = getEmailConfig();
 
-  if (!apiKey || !from || !to) {
+  if (!apiKey || !from || to.length === 0) {
     console.warn('Email notification skipped: missing RESEND_API_KEY, EMAIL_FROM or EMAIL_TO.');
     return;
   }
@@ -55,12 +66,19 @@ const sendTicketEmail = async ({ subject, intro, ticket }) => {
   try {
     const resend = new Resend(apiKey);
 
-    await resend.emails.send({
+    const result = await resend.emails.send({
       from,
       to,
       subject,
       text: buildTicketEmailText(ticket, intro)
     });
+
+    if (result?.error) {
+      console.warn(`Email notification failed: ${result.error.message || result.error}`);
+      return;
+    }
+
+    console.log('[email] notificacion enviada');
   } catch (error) {
     console.warn(`Email notification failed: ${error.message}`);
   }
