@@ -396,6 +396,38 @@ button {
   border-color: #d9480f;
 }
 
+.realtime-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  color: #667085;
+  font-size: 13px;
+  font-weight: 800;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+}
+
+.realtime-pill::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  background: #94a3b8;
+  border-radius: 50%;
+}
+
+.realtime-pill.is-active {
+  color: #166534;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.realtime-pill.is-active::before {
+  background: #22c55e;
+}
+
 .view-stack {
   display: grid;
   gap: 18px;

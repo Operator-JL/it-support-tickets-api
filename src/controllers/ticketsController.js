@@ -1,5 +1,6 @@
 const { sql, getConnection } = require('../config/db');
 const { isAdmin, isSupportRole } = require('../middlewares/roleMiddleware');
+const { emitSocketEvent } = require('../services/socketService');
 
 const allowedStatuses = ['Abierto', 'En proceso', 'Cerrado'];
 const allowedPriorities = ['Baja', 'Media', 'Alta', 'Urgente'];
@@ -142,10 +143,13 @@ const createTicket = async (req, res) => {
         VALUES (@UserId, @Title, @Description, @Category, @Priority, 'Abierto')
       `);
 
+    const ticket = mapTicket(result.recordset[0]);
+    emitSocketEvent('ticket:created', { ticket });
+
     return res.status(201).json({
       status: 201,
       message: 'Ticket created successfully',
-      ticket: mapTicket(result.recordset[0])
+      ticket
     });
   } catch (error) {
     return res.status(500).json({
@@ -339,10 +343,13 @@ const updateTicket = async (req, res) => {
       });
     }
 
+    const ticket = mapTicket(result.recordset[0]);
+    emitSocketEvent('ticket:updated', { ticket });
+
     return res.status(200).json({
       status: 200,
       message: 'Ticket updated successfully',
-      ticket: mapTicket(result.recordset[0])
+      ticket
     });
   } catch (error) {
     return res.status(500).json({
@@ -407,10 +414,13 @@ const updateTicketStatus = async (req, res) => {
       });
     }
 
+    const ticket = mapTicket(result.recordset[0]);
+    emitSocketEvent('ticket:status-updated', { ticket });
+
     return res.status(200).json({
       status: 200,
       message: 'Ticket status updated successfully',
-      ticket: mapTicket(result.recordset[0])
+      ticket
     });
   } catch (error) {
     return res.status(500).json({
@@ -470,10 +480,16 @@ const deleteTicket = async (req, res) => {
     await transaction.commit();
     transactionStarted = false;
 
+    const ticket = mapTicket(ticketResult.recordset[0]);
+    emitSocketEvent('ticket:deleted', {
+      ticketId,
+      ticket
+    });
+
     return res.status(200).json({
       status: 200,
       message: 'Ticket deleted successfully',
-      ticket: mapTicket(ticketResult.recordset[0])
+      ticket
     });
   } catch (error) {
     if (transactionStarted) {

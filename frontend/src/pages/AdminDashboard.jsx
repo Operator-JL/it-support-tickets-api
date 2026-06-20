@@ -20,6 +20,7 @@ import {
   getTickets,
   updateTicketStatus,
 } from "../services/api.js";
+import { getSocket } from "../services/socket.js";
 
 const roleLabels = {
   admin: "Administrador",
@@ -67,14 +68,20 @@ function AdminDashboard({ token, user, onLogout }) {
   const [updatingTicketId, setUpdatingTicketId] = useState("");
   const [ticketsError, setTicketsError] = useState("");
   const [actionError, setActionError] = useState("");
+  const [isRealtimeActive, setIsRealtimeActive] = useState(false);
   const userName = user?.name || user?.email || "Usuario";
   const userRole = roleLabels[(user?.role || "").toLowerCase()] || "Usuario";
   const currentSection = sectionCopy[activeSection] || sectionCopy.dashboard;
 
-  const loadTickets = useCallback(async () => {
-    setIsLoadingTickets(true);
+  const loadTickets = useCallback(async ({ showLoading = true } = {}) => {
+    if (showLoading) {
+      setIsLoadingTickets(true);
+    }
+
     setTicketsError("");
-    setActionError("");
+    if (showLoading) {
+      setActionError("");
+    }
 
     try {
       const ticketsData = await getTickets(token);
@@ -87,12 +94,64 @@ function AdminDashboard({ token, user, onLogout }) {
       setTickets([]);
       setTicketsError(error.message || "No se pudieron cargar los tickets.");
     } finally {
-      setIsLoadingTickets(false);
+      if (showLoading) {
+        setIsLoadingTickets(false);
+      }
     }
   }, [token]);
 
   useEffect(() => {
     loadTickets();
+  }, [loadTickets]);
+
+  useEffect(() => {
+    let isActive = true;
+    let socketConnection = null;
+    const refreshTickets = () => loadTickets({ showLoading: false });
+    const handleTicketDeleted = (payload = {}) => {
+      setSelectedTicket((current) =>
+        Number(getTicketId(current || {})) === Number(payload.ticketId)
+          ? null
+          : current
+      );
+      refreshTickets();
+    };
+    const handleConnect = () => setIsRealtimeActive(true);
+    const handleDisconnect = () => setIsRealtimeActive(false);
+
+    getSocket()
+      .then((socket) => {
+        if (!isActive) {
+          return;
+        }
+
+        socketConnection = socket;
+        setIsRealtimeActive(socket.connected);
+        socket.on("connect", handleConnect);
+        socket.on("disconnect", handleDisconnect);
+        socket.on("ticket:created", refreshTickets);
+        socket.on("ticket:updated", refreshTickets);
+        socket.on("ticket:status-updated", refreshTickets);
+        socket.on("ticket:deleted", handleTicketDeleted);
+      })
+      .catch(() => {
+        if (isActive) {
+          setIsRealtimeActive(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+
+      if (socketConnection) {
+        socketConnection.off("connect", handleConnect);
+        socketConnection.off("disconnect", handleDisconnect);
+        socketConnection.off("ticket:created", refreshTickets);
+        socketConnection.off("ticket:updated", refreshTickets);
+        socketConnection.off("ticket:status-updated", refreshTickets);
+        socketConnection.off("ticket:deleted", handleTicketDeleted);
+      }
+    };
   }, [loadTickets]);
 
   const stats = useMemo(() => {
@@ -313,6 +372,9 @@ function AdminDashboard({ token, user, onLogout }) {
             <p>{currentSection.subtitle}</p>
           </div>
           <div className="topbar__actions">
+            <span className={`realtime-pill ${isRealtimeActive ? "is-active" : ""}`}>
+              Tiempo real {isRealtimeActive ? "activo" : "conectando"}
+            </span>
             <button
               className="refresh-button"
               disabled={isLoadingTickets}

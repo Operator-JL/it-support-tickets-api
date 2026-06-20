@@ -1,5 +1,6 @@
 const { sql, getConnection } = require('../config/db');
 const { isSupportRole } = require('../middlewares/roleMiddleware');
+const { emitSocketEvent } = require('../services/socketService');
 
 const mapComment = (comment) => {
   return {
@@ -91,10 +92,16 @@ const addComment = async (req, res) => {
         VALUES (@TicketId, @UserId, @Comment)
       `);
 
+    const savedComment = mapComment(result.recordset[0]);
+    emitSocketEvent('comment:created', {
+      ticketId,
+      comment: savedComment
+    });
+
     return res.status(201).json({
       status: 201,
       message: 'Comment added successfully',
-      comment: mapComment(result.recordset[0])
+      comment: savedComment
     });
   } catch (error) {
     return res.status(500).json({

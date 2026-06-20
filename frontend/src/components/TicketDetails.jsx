@@ -1,6 +1,7 @@
 import { MessageSquare, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { addComment, getComments, updateTicket } from "../services/api.js";
+import { getSocket } from "../services/socket.js";
 
 const priorities = ["Baja", "Media", "Alta", "Urgente"];
 const inputClass =
@@ -33,6 +34,16 @@ function TicketDetails({ ticket, token, user, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const addCommentToState = useCallback((nextComment) => {
+    setComments((current) => {
+      const alreadyExists = current.some(
+        (comment) => Number(comment.id) === Number(nextComment.id)
+      );
+
+      return alreadyExists ? current : [...current, nextComment];
+    });
+  }, []);
+
   useEffect(() => {
     let active = true;
     setEdit(ticket);
@@ -62,6 +73,50 @@ function TicketDetails({ ticket, token, user, onClose, onSaved }) {
       active = false;
     };
   }, [ticket, token]);
+
+  useEffect(() => {
+    let isActive = true;
+    let socketConnection = null;
+    const ticketId = Number(ticket.id);
+    const handleCommentCreated = (payload = {}) => {
+      if (Number(payload.ticketId) !== ticketId || !payload.comment) {
+        return;
+      }
+
+      addCommentToState(payload.comment);
+    };
+    const handleTicketStatusUpdated = (payload = {}) => {
+      const nextTicket = payload.ticket;
+
+      if (!nextTicket || Number(nextTicket.id) !== ticketId) {
+        return;
+      }
+
+      setEdit(nextTicket);
+      onSaved(nextTicket);
+    };
+
+    getSocket()
+      .then((socket) => {
+        if (!isActive) {
+          return;
+        }
+
+        socketConnection = socket;
+        socket.on("comment:created", handleCommentCreated);
+        socket.on("ticket:status-updated", handleTicketStatusUpdated);
+      })
+      .catch(() => {});
+
+    return () => {
+      isActive = false;
+
+      if (socketConnection) {
+        socketConnection.off("comment:created", handleCommentCreated);
+        socketConnection.off("ticket:status-updated", handleTicketStatusUpdated);
+      }
+    };
+  }, [addCommentToState, onSaved, ticket.id]);
 
   function update(field, value) {
     setEdit((current) => ({ ...current, [field]: value }));
@@ -100,7 +155,7 @@ function TicketDetails({ ticket, token, user, onClose, onSaved }) {
 
     try {
       const data = await addComment(token, ticket.id, cleanComment);
-      setComments((current) => [...current, data.comment]);
+      addCommentToState(data.comment);
       setNewComment("");
     } catch (commentError) {
       setError(commentError.message || "No se pudo agregar el comentario.");
