@@ -10,10 +10,9 @@ El objetivo del modelo es distinguir claramente entre:
 
 ## Archivos relacionados
 
-- `database.sql`: script anterior/base del proyecto.
-- `database.sql`: script limpio y defendible para una base reproducible en SQL Server.
+- `database.sql`: script limpio y defendible para crear la base en SQL Server.
 
-`database.sql` no usa `DROP DATABASE` ni `DROP TABLE`. Esta pensado para ejecutarse en una base vacia o para revisarse antes de aplicarlo sobre una base existente.
+`database.sql` no usa `DROP TABLE`. Esta pensado para una base de pruebas nueva o para revisarse antes de aplicarlo sobre una base existente.
 
 ## Tablas principales
 
@@ -54,6 +53,8 @@ Columnas principales:
 - `created_at`: fecha de creacion.
 - `updated_at`: fecha de ultima actualizacion.
 - `closed_at`: fecha de cierre, si aplica.
+
+`assigned_to_user_id` esta preparado para una fase futura de asignacion. Puede ser `NULL` porque un ticket puede crearse primero y asignarse despues.
 
 Prioridades validas:
 
