@@ -129,6 +129,7 @@ function UsersPage({ token, user }) {
               <th className="px-5 py-4 font-black">Nombre</th>
               <th className="px-5 py-4 font-black">Correo</th>
               <th className="px-5 py-4 font-black">Rol</th>
+              <th className="px-5 py-4 font-black">Estado</th>
               <th className="px-5 py-4 font-black">Alta</th>
             </tr>
           </thead>
@@ -152,6 +153,17 @@ function UsersPage({ token, user }) {
                       </option>
                     ))}
                   </select>
+                </td>
+                <td className="px-5 py-4">
+                  <span
+                    className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${
+                      nextUser.is_active
+                        ? "bg-green-50 text-green-700"
+                        : "bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    {nextUser.is_active ? "Activo" : "Inactivo"}
+                  </span>
                 </td>
                 <td className="px-5 py-4 text-slate-600">
                   {formatDate(nextUser.created_at)}

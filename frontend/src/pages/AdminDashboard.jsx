@@ -12,7 +12,6 @@ import TicketDetails from "../components/TicketDetails.jsx";
 import TicketForm from "../components/TicketForm.jsx";
 import TicketTable from "../components/TicketTable.jsx";
 import ReportsPage from "./ReportsPage.jsx";
-import SettingsPage from "./SettingsPage.jsx";
 import UsersPage from "./UsersPage.jsx";
 import {
   createTicket,
@@ -44,10 +43,6 @@ const sectionCopy = {
   reports: {
     title: "Reportes",
     subtitle: "Indicadores calculados con tickets reales",
-  },
-  settings: {
-    title: "Configuración",
-    subtitle: "Información de sesión y entrega local",
   },
 };
 
@@ -119,7 +114,7 @@ function AdminDashboard({ token, user, onLogout }) {
     const handleConnect = () => setIsRealtimeActive(true);
     const handleDisconnect = () => setIsRealtimeActive(false);
 
-    getSocket()
+    getSocket(token)
       .then((socket) => {
         if (!isActive) {
           return;
@@ -152,7 +147,7 @@ function AdminDashboard({ token, user, onLogout }) {
         socketConnection.off("ticket:deleted", handleTicketDeleted);
       }
     };
-  }, [loadTickets]);
+  }, [loadTickets, token]);
 
   const stats = useMemo(() => {
     const countByStatus = (status) =>
@@ -324,10 +319,6 @@ function AdminDashboard({ token, user, onLogout }) {
 
     if (activeSection === "reports") {
       return <ReportsPage tickets={tickets} isLoading={isLoadingTickets} />;
-    }
-
-    if (activeSection === "settings") {
-      return <SettingsPage user={user} />;
     }
 
     return (

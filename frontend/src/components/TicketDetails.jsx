@@ -96,7 +96,7 @@ function TicketDetails({ ticket, token, user, onClose, onSaved }) {
       onSaved(nextTicket);
     };
 
-    getSocket()
+    getSocket(token)
       .then((socket) => {
         if (!isActive) {
           return;
@@ -116,7 +116,7 @@ function TicketDetails({ ticket, token, user, onClose, onSaved }) {
         socketConnection.off("ticket:status-updated", handleTicketStatusUpdated);
       }
     };
-  }, [addCommentToState, onSaved, ticket.id]);
+  }, [addCommentToState, onSaved, ticket.id, token]);
 
   function update(field, value) {
     setEdit((current) => ({ ...current, [field]: value }));

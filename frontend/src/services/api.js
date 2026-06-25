@@ -58,6 +58,13 @@ export function login(email, password) {
   });
 }
 
+export function logout(token) {
+  return request("/logout", {
+    method: "POST",
+    token,
+  });
+}
+
 export function getProfile(token) {
   return request("/profile", {
     token,

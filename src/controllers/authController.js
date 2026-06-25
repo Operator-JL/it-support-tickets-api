@@ -1,6 +1,7 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { sql, getConnection } = require('../config/db');
+const { setUserPresence } = require('../services/presenceService');
 
 const DEFAULT_ROLE = 'user';
 
@@ -14,7 +15,8 @@ const mapUser = (user) => {
     id: user.Id || user.id,
     name: user.Name || user.name,
     email: user.Email || user.email,
-    role: getUserRole(user)
+    role: getUserRole(user),
+    is_active: user.is_active !== undefined ? user.is_active : user.IsActive
   };
 };
 
@@ -174,18 +176,40 @@ const login = async (req, res) => {
       });
     }
 
+    await setUserPresence(user.Id || user.id, true);
+
     const token = createToken(user);
 
     return res.status(200).json({
       status: 200,
       message: 'Login successfully',
-      user: mapUser(user),
+      user: {
+        ...mapUser(user),
+        is_active: true
+      },
       token
     });
   } catch (error) {
     return res.status(500).json({
       status: 500,
       message: 'Error logging in',
+      error: error.message
+    });
+  }
+};
+
+const logout = async (req, res) => {
+  try {
+    await setUserPresence(req.user.id, false);
+
+    return res.status(200).json({
+      status: 200,
+      message: 'Logout successfully'
+    });
+  } catch (error) {
+    return res.status(500).json({
+      status: 500,
+      message: 'Error logging out',
       error: error.message
     });
   }
@@ -203,5 +227,6 @@ module.exports = {
   home,
   register,
   login,
+  logout,
   profile
 };

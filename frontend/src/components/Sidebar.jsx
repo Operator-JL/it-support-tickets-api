@@ -2,7 +2,6 @@ import {
   BarChart3,
   ClipboardList,
   LayoutDashboard,
-  Settings,
   UsersRound,
 } from "lucide-react";
 import sistLogo from "../assets/brand/sist-logo.png";
@@ -12,7 +11,6 @@ const menuItems = [
   { id: "tickets", label: "Tickets", icon: ClipboardList },
   { id: "users", label: "Usuarios", icon: UsersRound },
   { id: "reports", label: "Reportes", icon: BarChart3 },
-  { id: "settings", label: "Configuración", icon: Settings },
 ];
 
 function Sidebar({ activeSection, onNavigate }) {

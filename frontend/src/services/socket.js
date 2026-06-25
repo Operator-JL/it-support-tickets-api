@@ -4,6 +4,7 @@ const socketServerUrl = API_BASE_URL.replace(/\/$/, "");
 const socketScriptId = "socket-io-client-script";
 let socketPromise = null;
 let socketInstance = null;
+let socketToken = "";
 
 function loadSocketClient() {
   if (window.io) {
@@ -29,15 +30,34 @@ function loadSocketClient() {
   });
 }
 
-export async function getSocket() {
-  if (socketInstance) {
+export async function getSocket(token) {
+  const nextToken = token || "";
+
+  if (!nextToken) {
+    throw new Error("Token requerido para Socket.IO.");
+  }
+
+  if (socketInstance && socketToken === nextToken) {
     return socketInstance;
   }
+
+  if ((socketInstance || socketPromise) && socketToken !== nextToken) {
+    disconnectSocket();
+  }
+
+  if (socketPromise && socketToken === nextToken) {
+    return socketPromise;
+  }
+
+  socketToken = nextToken;
 
   if (!socketPromise) {
     socketPromise = loadSocketClient()
       .then(() => {
         socketInstance = window.io(socketServerUrl, {
+          auth: {
+            token: nextToken,
+          },
           transports: ["websocket", "polling"],
         });
 
@@ -45,6 +65,7 @@ export async function getSocket() {
       })
       .catch((error) => {
         socketPromise = null;
+        socketToken = "";
         throw error;
       });
   }
@@ -59,4 +80,5 @@ export function disconnectSocket() {
 
   socketInstance = null;
   socketPromise = null;
+  socketToken = "";
 }

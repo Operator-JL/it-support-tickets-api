@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import AdminDashboard from "./pages/AdminDashboard.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
-import { getProfile, login } from "./services/api.js";
+import { getProfile, login, logout } from "./services/api.js";
+import { disconnectSocket, getSocket } from "./services/socket.js";
 
 const TOKEN_STORAGE_KEY = "sist_auth_token";
 
@@ -22,6 +23,7 @@ function App() {
 
     async function loadProfile() {
       if (!token) {
+        disconnectSocket();
         setUser(null);
         setIsCheckingSession(false);
         return;
@@ -38,6 +40,7 @@ function App() {
         }
       } catch (error) {
         if (isActive) {
+          disconnectSocket();
           localStorage.removeItem(TOKEN_STORAGE_KEY);
           setToken("");
           setUser(null);
@@ -70,9 +73,21 @@ function App() {
     setToken(loginData.token);
     setUser(profileData.user || loginData.user);
     setSessionMessage("");
+    getSocket(loginData.token).catch(() => {});
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const currentToken = token;
+
+    try {
+      if (currentToken) {
+        await logout(currentToken);
+      }
+    } catch (error) {
+      // Aunque falle el endpoint, la sesión local se limpia.
+    }
+
+    disconnectSocket();
     localStorage.removeItem(TOKEN_STORAGE_KEY);
     setToken("");
     setUser(null);

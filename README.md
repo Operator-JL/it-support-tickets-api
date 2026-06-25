@@ -59,5 +59,3 @@ Ese script crea `Users`, `Tickets` y `TicketComments`.
 Socket.IO actualiza tickets y comentarios en tiempo real.
 
 Resend manda correos al crear y cerrar tickets.
-
-
