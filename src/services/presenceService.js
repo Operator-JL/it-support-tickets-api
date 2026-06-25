@@ -1,134 +1,117 @@
-const jwt = require('jsonwebtoken');
-const { sql, getConnection } = require('../config/db');
+const { Resend } = require('resend');
 
-const activeSocketsByUserId = new Map();
-
-const normalizeUserId = (userId) => {
-  const numericUserId = Number(userId);
-
-  if (!Number.isInteger(numericUserId) || numericUserId <= 0) {
-    return null;
-  }
-
-  return numericUserId;
+// checa si el resend esta true en el env
+const isEmailEnabled = () => {
+  return process.env.EMAIL_ENABLED === 'true';
 };
 
-const normalizeRole = (role) => {
-  return typeof role === 'string' ? role.toLowerCase() : 'user';
+// separa los correos destino por coma y limpia espacios
+const getEmailRecipients = (value) => {
+  if (!value) {
+    return [];
+  }
+
+  return String(value)
+    .split(',')
+    .map((email) => email.trim())
+    .filter(Boolean);
 };
 
-const getSocketToken = (socket) => {
-  const authToken = socket.handshake.auth && socket.handshake.auth.token;
-  const authHeader = socket.handshake.headers.authorization;
-
-  if (typeof authToken === 'string' && authToken.trim()) {
-    return authToken.trim();
-  }
-
-  if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
-    return authHeader.split(' ')[1];
-  }
-
-  return '';
-};
-
-const getSocketUser = (socket) => {
-  const token = getSocketToken(socket);
-
-  if (!token) {
-    throw new Error('Authentication token is required');
-  }
-
-  const decoded = jwt.verify(token, process.env.JWT_SECRET);
-  const userId = normalizeUserId(decoded.id || decoded.Id);
-
-  if (!userId) {
-    throw new Error('Invalid token user');
-  }
-
+// obtiene la configuracion del env
+const getEmailConfig = () => {
   return {
-    id: userId,
-    name: decoded.name || decoded.Name,
-    email: decoded.email || decoded.Email,
-    role: normalizeRole(decoded.role || decoded.Role)
+    apiKey: process.env.RESEND_API_KEY,
+    from: process.env.EMAIL_FROM,
+    to: getEmailRecipients(process.env.EMAIL_TO)
   };
 };
 
-const setUserPresence = async (userId, isActive) => {
-  const normalizedUserId = normalizeUserId(userId);
-
-  if (!normalizedUserId) {
-    return;
+// recorta la descripcion para que el correo no quede tan largo
+const getShortDescription = (description) => {
+  if (!description) {
+    return 'Sin descripcion.';
   }
 
-  const pool = await getConnection();
+  const cleanDescription = String(description).trim();
 
-  await pool
-    .request()
-    .input('Id', sql.Int, normalizedUserId)
-    .input('IsActive', sql.Bit, isActive ? 1 : 0)
-    .query(`
-      UPDATE Users
-      SET is_active = @IsActive
-      WHERE id = @Id
-    `);
+  if (cleanDescription.length <= 180) {
+    return cleanDescription;
+  }
+
+  return `${cleanDescription.slice(0, 180)}...`;
 };
 
-const resetAllUserPresence = async () => {
-  const pool = await getConnection();
-
-  await pool.request().query(`
-    UPDATE Users
-    SET is_active = 0
-    WHERE is_active <> 0
-  `);
+// arma el texto que se mandara dentro del correo
+const buildTicketEmailText = (ticket, intro) => {
+  return [
+    intro,
+    '',
+    `Ticket: ${ticket.title}`,
+    `Prioridad: ${ticket.priority}`,
+    `Estado: ${ticket.status}`,
+    `Categoria: ${ticket.category || 'Sin categoria'}`,
+    '',
+    'Descripcion:',
+    getShortDescription(ticket.description)
+  ].join('\n');
 };
 
-const registerUserSocket = async (userId, socketId) => {
-  const normalizedUserId = normalizeUserId(userId);
-
-  if (!normalizedUserId) {
+// envia el correo del ticket usando resend
+const sendTicketEmail = async ({ subject, intro, ticket }) => {
+  if (!isEmailEnabled()) {
     return;
   }
 
-  const key = String(normalizedUserId);
-  const userSockets = activeSocketsByUserId.get(key) || new Set();
-  userSockets.add(socketId);
-  activeSocketsByUserId.set(key, userSockets);
+  const { apiKey, from, to } = getEmailConfig();
 
-  await setUserPresence(normalizedUserId, true);
+  // si falla el env, trata de no enviar el correo
+  if (!apiKey || !from || to.length === 0) {
+    console.warn('Email notification skipped: missing RESEND_API_KEY, EMAIL_FROM or EMAIL_TO.');
+    return;
+  }
+
+  try {
+    const resend = new Resend(apiKey);
+
+    const result = await resend.emails.send({
+      from,
+      to,
+      subject,
+      text: buildTicketEmailText(ticket, intro)
+    });
+
+    // si resend responde con error, lo muestra en consola
+    if (result?.error) {
+      console.warn(`Email notification failed: ${result.error.message || result.error}`);
+      return;
+    }
+
+    console.log('[email] notificacion enviada');
+  } catch (error) {
+    console.warn(`Email notification failed: ${error.message}`);
+  }
 };
 
-const unregisterUserSocket = async (userId, socketId) => {
-  const normalizedUserId = normalizeUserId(userId);
-
-  if (!normalizedUserId) {
-    return;
-  }
-
-  const key = String(normalizedUserId);
-  const userSockets = activeSocketsByUserId.get(key);
-
-  if (!userSockets) {
-    await setUserPresence(normalizedUserId, false);
-    return;
-  }
-
-  userSockets.delete(socketId);
-
-  if (userSockets.size === 0) {
-    activeSocketsByUserId.delete(key);
-    await setUserPresence(normalizedUserId, false);
-    return;
-  }
-
-  await setUserPresence(normalizedUserId, true);
+// manda correo cuando se crea un ticket nuevo
+const sendTicketCreatedEmail = (ticket) => {
+  return sendTicketEmail({
+    subject: `Nuevo ticket SIST: ${ticket.title}`,
+    intro: 'Se creo un nuevo ticket en SIST.',
+    ticket
+  });
 };
 
+// manda correo cuando un ticket se cierra
+const sendTicketClosedEmail = (ticket) => {
+  return sendTicketEmail({
+    subject: `Ticket cerrado SIST: ${ticket.title}`,
+    intro: 'Un ticket fue marcado como Cerrado en SIST.',
+    ticket
+  });
+};
+
+// exporta a controllers
 module.exports = {
-  getSocketUser,
-  registerUserSocket,
-  resetAllUserPresence,
-  setUserPresence,
-  unregisterUserSocket
+  sendTicketCreatedEmail,
+  sendTicketClosedEmail
 };
