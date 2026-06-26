@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import AdminDashboard from "./pages/AdminDashboard.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
-import { getProfile, googleLogin, login, logout } from "./services/api.js";
+import { getProfile, login, loginWithGoogle, logout } from "./services/api.js";
 import { disconnectSocket, getSocket } from "./services/socket.js";
 
 const TOKEN_STORAGE_KEY = "sist_auth_token";
@@ -121,7 +121,7 @@ function App() {
   };
 
   const handleGoogleLogin = async (credential) => {
-    const loginData = await googleLogin(credential);
+    const loginData = await loginWithGoogle(credential);
     await startSession(loginData);
   };
 

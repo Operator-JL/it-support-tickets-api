@@ -126,6 +126,26 @@ const getUserByEmail = async (pool, email, { includePassword = false } = {}) => 
   return result.recordset[0] || null;
 };
 
+const getUserByGoogleId = async (pool, googleId) => {
+  const schema = await getUserSchema(pool);
+
+  if (!schema.hasGoogleId) {
+    return null;
+  }
+
+  const result = await pool
+    .request()
+    .input('GoogleId', sql.NVarChar(255), googleId)
+    .query(`
+      SELECT
+        ${buildUserSelect(schema)}
+      FROM Users
+      WHERE google_id = @GoogleId
+    `);
+
+  return result.recordset[0] || null;
+};
+
 const getUserById = async (pool, id) => {
   const schema = await getUserSchema(pool);
   const result = await pool
@@ -169,7 +189,7 @@ const createLocalUser = async (pool, { name, email, passwordHash, role = DEFAULT
     .input('PasswordHash', sql.NVarChar(255), passwordHash)
     .input('Role', sql.NVarChar(20), getRoleForStorage(role) || DEFAULT_ROLE);
 
-  if (schema.hasIsActive && schema.hasIsOnline) {
+  if (schema.hasIsActive) {
     columns.push('is_active');
     values.push('1');
   }
@@ -194,7 +214,7 @@ const createLocalUser = async (pool, { name, email, passwordHash, role = DEFAULT
   return result.recordset[0];
 };
 
-const createGoogleUser = async (pool, { name, email, googleId }) => {
+const createGoogleUser = async (pool, { name, email, googleId, role = DEFAULT_ROLE }) => {
   const schema = await getUserSchema(pool);
 
   if (!schema.hasProvider || !schema.hasGoogleId || !schema.passwordHashNullable) {
@@ -232,7 +252,7 @@ const createGoogleUser = async (pool, { name, email, googleId }) => {
     .request()
     .input('Name', sql.NVarChar(100), name)
     .input('Email', sql.NVarChar(150), email)
-    .input('Role', sql.NVarChar(20), DEFAULT_ROLE)
+    .input('Role', sql.NVarChar(20), getRoleForStorage(role) || DEFAULT_ROLE)
     .input('GoogleId', sql.NVarChar(255), googleId)
     .query(`
       INSERT INTO Users (${columns.join(', ')})
@@ -352,11 +372,16 @@ const updateUserPassword = async (pool, userId, passwordHash) => {
 
 const linkGoogleUser = async (pool, userId, googleId) => {
   const schema = await getUserSchema(pool);
+
+  if (!schema.hasGoogleId || !schema.hasProvider) {
+    throw new Error('Google user schema is not ready. Run database.sql before enabling Google login.');
+  }
+
   const updates = [];
 
-  if (schema.hasGoogleId) {
-    updates.push('google_id = COALESCE(google_id, @GoogleId)');
-  }
+  updates.push('google_id = COALESCE(google_id, @GoogleId)');
+
+  updates.push(`provider = 'google'`);
 
   if (schema.hasUpdatedAt) {
     updates.push('updated_at = GETDATE()');
@@ -415,6 +440,7 @@ module.exports = {
   createLocalUser,
   getPresenceColumn,
   getUserByEmail,
+  getUserByGoogleId,
   getUserById,
   getUserSchema,
   getUsers,

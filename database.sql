@@ -42,7 +42,7 @@ BEGIN
 
     CONSTRAINT PK_Users PRIMARY KEY (id),
     CONSTRAINT UQ_Users_email UNIQUE (email),
-    CONSTRAINT CK_Users_role CHECK ([role] IN ('admin', 'soporte', 'usuario', 'it', 'user')),
+    CONSTRAINT CK_Users_role CHECK ([role] IN ('admin', 'soporte', 'usuario')),
     CONSTRAINT CK_Users_provider CHECK (provider IN ('local', 'google'))
   );
 
@@ -130,8 +130,12 @@ BEGIN
 END;
 GO
 
+UPDATE dbo.Users SET [role] = 'usuario' WHERE [role] = 'user';
+UPDATE dbo.Users SET [role] = 'soporte' WHERE [role] = 'it';
+GO
+
 ALTER TABLE dbo.Users
-  ADD CONSTRAINT CK_Users_role CHECK ([role] IN ('admin', 'soporte', 'usuario', 'it', 'user'));
+  ADD CONSTRAINT CK_Users_role CHECK ([role] IN ('admin', 'soporte', 'usuario'));
 GO
 
 IF OBJECT_ID('dbo.CK_Users_provider', 'C') IS NULL
@@ -152,10 +156,6 @@ BEGIN
     ON dbo.Users (google_id)
     WHERE google_id IS NOT NULL;
 END;
-GO
-
-UPDATE dbo.Users SET [role] = 'usuario' WHERE [role] = 'user';
-UPDATE dbo.Users SET [role] = 'soporte' WHERE [role] = 'it';
 GO
 
 -- usuarios demo oficiales
@@ -287,6 +287,7 @@ SELECT
   is_active,
   is_online,
   provider,
+  google_id,
   created_at,
   updated_at,
   last_login_at

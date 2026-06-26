@@ -191,6 +191,16 @@ button {
   background: rgba(255, 255, 255, 0.14);
 }
 
+.google-login-disabled {
+  width: 100%;
+  min-height: 44px;
+  color: #cbd5e1;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+}
+
 .dashboard-layout {
   display: grid;
   grid-template-columns: 268px minmax(0, 1fr);

@@ -5,6 +5,7 @@ const { getConnection } = require('../config/db');
 const {
   createGoogleUser,
   createLocalUser,
+  getUserByGoogleId,
   getUserByEmail,
   getUserById,
   linkGoogleUser,
@@ -12,6 +13,7 @@ const {
 } = require('../services/userService');
 const {
   DEFAULT_ROLE,
+  getRoleForStorage,
   getTokenPayload,
   mapPublicUser,
   mapSessionUser
@@ -31,9 +33,18 @@ const getCleanPassword = (password) => {
   return typeof password === 'string' ? password.trim() : '';
 };
 
-const getAllowedGoogleDomain = () => {
-  return typeof process.env.GOOGLE_ALLOWED_DOMAIN === 'string'
-    ? process.env.GOOGLE_ALLOWED_DOMAIN.trim().toLowerCase()
+const getEnvList = (name) => {
+  return typeof process.env[name] === 'string'
+    ? process.env[name]
+      .split(',')
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean)
+    : [];
+};
+
+const getCleanEnv = (name) => {
+  return typeof process.env[name] === 'string'
+    ? process.env[name].trim()
     : '';
 };
 
@@ -54,6 +65,22 @@ const sendAuthResponse = async (res, pool, user) => {
     token: createToken(user),
     user: sessionUser
   });
+};
+
+const getEmailDomain = (email) => {
+  const parts = String(email || '').split('@');
+  return parts.length === 2 ? parts[1].trim().toLowerCase() : '';
+};
+
+const getGoogleRoleForNewUser = (email) => {
+  const adminEmails = getEnvList('GOOGLE_ADMIN_EMAILS');
+
+  if (adminEmails.includes(email)) {
+    return 'admin';
+  }
+
+  const defaultRole = getCleanEnv('GOOGLE_DEFAULT_ROLE') || DEFAULT_ROLE;
+  return getRoleForStorage(defaultRole);
 };
 
 const home = (req, res) => {
@@ -166,14 +193,7 @@ const login = async (req, res) => {
 
 const googleLogin = async (req, res) => {
   try {
-    if (!process.env.GOOGLE_CLIENT_ID) {
-      return res.status(503).json({
-        status: 503,
-        message: 'Google login is not configured'
-      });
-    }
-
-    const credential = typeof req.body.credential === 'string'
+    const credential = typeof req.body?.credential === 'string'
       ? req.body.credential.trim()
       : '';
 
@@ -184,36 +204,78 @@ const googleLogin = async (req, res) => {
       });
     }
 
-    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-    const ticket = await client.verifyIdToken({
-      idToken: credential,
-      audience: process.env.GOOGLE_CLIENT_ID
-    });
+    const googleClientId = getCleanEnv('GOOGLE_CLIENT_ID');
+
+    if (!googleClientId) {
+      return res.status(503).json({
+        status: 503,
+        message: 'Google OAuth no está configurado'
+      });
+    }
+
+    const client = new OAuth2Client(googleClientId);
+    let ticket;
+
+    try {
+      ticket = await client.verifyIdToken({
+        idToken: credential,
+        audience: googleClientId
+      });
+    } catch (error) {
+      return res.status(401).json({
+        status: 401,
+        message: 'Invalid Google credential'
+      });
+    }
+
     const payload = ticket.getPayload();
 
-    if (!payload?.email || payload.email_verified !== true) {
+    if (!payload?.sub || !payload?.email || payload.email_verified !== true) {
       return res.status(401).json({
         status: 401,
         message: 'Google email is not verified'
       });
     }
 
-    const allowedDomain = getAllowedGoogleDomain();
+    const email = payload.email.trim().toLowerCase();
+    const allowedEmails = getEnvList('GOOGLE_ALLOWED_EMAILS');
+
+    if (allowedEmails.length > 0 && !allowedEmails.includes(email)) {
+      return res.status(403).json({
+        status: 403,
+        message: 'Google account email is not allowed'
+      });
+    }
+
+    const allowedDomain = getCleanEnv('GOOGLE_ALLOWED_DOMAIN').toLowerCase();
     const hostedDomain = typeof payload.hd === 'string'
       ? payload.hd.trim().toLowerCase()
       : '';
+    const emailDomain = getEmailDomain(email);
 
-    if (allowedDomain && hostedDomain !== allowedDomain) {
+    if (allowedDomain && hostedDomain !== allowedDomain && emailDomain !== allowedDomain) {
       return res.status(403).json({
         status: 403,
         message: 'Google account domain is not allowed'
       });
     }
 
+    const newUserRole = getGoogleRoleForNewUser(email);
+
+    if (!newUserRole) {
+      return res.status(503).json({
+        status: 503,
+        message: 'Google default role is not valid'
+      });
+    }
+
     const pool = await getConnection();
-    const email = payload.email.trim().toLowerCase();
     const name = payload.name || email.split('@')[0];
-    let user = await getUserByEmail(pool, email);
+    let user = await getUserByGoogleId(pool, payload.sub);
+
+    if (!user) {
+      user = await getUserByEmail(pool, email);
+    }
 
     if (user && !mapPublicUser(user).is_active) {
       return res.status(403).json({
@@ -235,7 +297,8 @@ const googleLogin = async (req, res) => {
       user = await createGoogleUser(pool, {
         name,
         email,
-        googleId: payload.sub
+        googleId: payload.sub,
+        role: newUserRole
       });
     }
 
@@ -244,15 +307,15 @@ const googleLogin = async (req, res) => {
     console.error('[auth] Google login failed:', error.message);
 
     if (error.message.includes('Google user schema is not ready')) {
-      return res.status(500).json({
-        status: 500,
+      return res.status(503).json({
+        status: 503,
         message: error.message
       });
     }
 
-    return res.status(401).json({
-      status: 401,
-      message: 'Invalid Google credential'
+    return res.status(500).json({
+      status: 500,
+      message: 'Error interno del servidor'
     });
   }
 };

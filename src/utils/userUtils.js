@@ -75,7 +75,8 @@ const mapSessionUser = (user = {}) => {
     id: publicUser.id,
     name: publicUser.name,
     email: publicUser.email,
-    role: publicUser.role
+    role: publicUser.role,
+    provider: publicUser.provider
   };
 };
 

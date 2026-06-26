@@ -91,21 +91,26 @@ function LoginPage({ onGoogleLogin, onLogin, sessionMessage = "" }) {
           </button>
         </form>
 
-        {googleClientId && (
-          <div className="google-login-wrap">
-            <div className="login-divider" aria-hidden="true">
-              <span />
-              <strong>o</strong>
-              <span />
-            </div>
+        <div className="google-login-wrap">
+          <div className="login-divider" aria-hidden="true">
+            <span />
+            <strong>o</strong>
+            <span />
+          </div>
+
+          {googleClientId ? (
             <GoogleLogin
               onError={() => setError("No se pudo iniciar sesion con Google.")}
               onSuccess={handleGoogleSuccess}
               theme="filled_black"
               width="100%"
             />
-          </div>
-        )}
+          ) : (
+            <button className="google-login-disabled" disabled type="button">
+              Google OAuth no configurado
+            </button>
+          )}
+        </div>
       </section>
     </main>
   );

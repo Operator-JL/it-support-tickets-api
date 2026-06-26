@@ -9,10 +9,13 @@ const errorMessages = {
   "you do not have permission to perform this action": "No tienes permiso para realizar esta accion.",
   "user is inactive": "Esta cuenta esta desactivada.",
   "google login is not configured": "Google no esta configurado en el servidor.",
+  "google oauth no está configurado": "Google no esta configurado en el servidor.",
   "google credential is required": "Google no devolvio credencial.",
   "invalid google credential": "Credencial de Google invalida.",
   "google account is not linked to this user": "Esta cuenta de Google no esta vinculada a este usuario.",
   "google account domain is not allowed": "Esta cuenta de Google no pertenece al dominio permitido.",
+  "google account email is not allowed": "Esta cuenta de Google no esta permitida.",
+  "google default role is not valid": "El rol por defecto de Google no es valido.",
   "google email is not verified": "El correo de Google no esta verificado.",
   "ticket not found": "Ticket no encontrado.",
   "user not found": "Usuario no encontrado.",
@@ -78,12 +81,14 @@ export function login(email, password) {
   });
 }
 
-export function googleLogin(credential) {
+export function loginWithGoogle(credential) {
   return request("/auth/google", {
     method: "POST",
     body: { credential },
   });
 }
+
+export const googleLogin = loginWithGoogle;
 
 export function logout(token) {
   return request("/logout", {

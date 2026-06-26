@@ -24,9 +24,12 @@ DB_USER=
 DB_PASSWORD=
 DB_SERVER=
 DB_DATABASE=
-JWT_SECRET=
+JWT_SECRET=sist_demo_secret_change_me
 GOOGLE_CLIENT_ID=
 GOOGLE_ALLOWED_DOMAIN=
+GOOGLE_ALLOWED_EMAILS=
+GOOGLE_ADMIN_EMAILS=
+GOOGLE_DEFAULT_ROLE=usuario
 FRONTEND_URL=http://localhost:5173
 EMAIL_ENABLED=false
 RESEND_API_KEY=
@@ -41,7 +44,18 @@ VITE_API_URL=http://localhost:3000
 VITE_GOOGLE_CLIENT_ID=
 ```
 
-`GOOGLE_CLIENT_ID` y `VITE_GOOGLE_CLIENT_ID` deben usar el mismo client id de Google. Si no se configuran, el login local sigue funcionando y Google queda oculto/deshabilitado.
+`GOOGLE_CLIENT_ID` y `VITE_GOOGLE_CLIENT_ID` deben usar el mismo Client ID de Google. No se necesita client secret para este flujo: el frontend recibe un Google ID token, el backend lo verifica con Google y SIST genera su propio JWT interno.
+
+Si no se configuran las variables de Google, el login local sigue funcionando y el boton de Google queda deshabilitado o devuelve un 503 claro.
+
+Variables Google opcionales:
+
+- `GOOGLE_ALLOWED_DOMAIN`: restringe Google login a un dominio, por ejemplo `escuela.edu`.
+- `GOOGLE_ALLOWED_EMAILS`: lista separada por comas; si tiene valor, solo esos correos pueden entrar con Google.
+- `GOOGLE_ADMIN_EMAILS`: lista separada por comas; esos correos se crean como `admin` solo la primera vez que entran por Google.
+- `GOOGLE_DEFAULT_ROLE`: rol para usuarios Google auto-creados. Usar `usuario`, `soporte` o `admin`; recomendado `usuario`.
+
+Si `GOOGLE_ALLOWED_DOMAIN` y `GOOGLE_ALLOWED_EMAILS` quedan vacios, cualquier cuenta Google valida puede auto-crear usuario con el rol de `GOOGLE_DEFAULT_ROLE`.
 
 `EMAIL_TO` acepta un correo o varios separados por coma. Las notificaciones por Resend son opcionales y best-effort: si `EMAIL_ENABLED=false` o faltan datos de correo, los tickets siguen funcionando.
 
@@ -98,6 +112,46 @@ Backend: [http://localhost:3000](http://localhost:3000/)
 
 Frontend: [http://localhost:5173](http://localhost:5173/)
 
+## Configurar Google OAuth para demo
+
+1. Entrar a [Google Cloud Console](https://console.cloud.google.com/).
+2. Crear o elegir un proyecto.
+3. Ir a **APIs & Services > OAuth consent screen** y configurar la pantalla de consentimiento.
+4. Ir a **APIs & Services > Credentials > Create credentials > OAuth client ID**.
+5. Elegir tipo **Web application**.
+6. En **Authorized JavaScript origins**, agregar:
+
+```text
+http://localhost:5173
+```
+
+7. Crear la credencial y copiar el **Client ID**.
+8. Pegar el mismo Client ID en backend y frontend:
+
+```env
+# .env del backend
+GOOGLE_CLIENT_ID=TU_CLIENT_ID.apps.googleusercontent.com
+
+# frontend/.env
+VITE_GOOGLE_CLIENT_ID=TU_CLIENT_ID.apps.googleusercontent.com
+```
+
+9. Si el profesor debe entrar como admin por Google, agregar su correo en backend:
+
+```env
+GOOGLE_ADMIN_EMAILS=profesor@ejemplo.edu
+GOOGLE_DEFAULT_ROLE=usuario
+```
+
+10. Si se quiere restringir acceso, usar una de estas opciones:
+
+```env
+GOOGLE_ALLOWED_EMAILS=profesor@ejemplo.edu,alumno@ejemplo.edu
+GOOGLE_ALLOWED_DOMAIN=ejemplo.edu
+```
+
+Reinicia backend y frontend despues de cambiar variables `.env`.
+
 ## Rutas principales
 
 - `GET /`
@@ -138,7 +192,9 @@ Frontend: [http://localhost:5173](http://localhost:5173/)
 - Google valida la identidad externa con OIDC, pero SIST genera su propio JWT interno.
 - Los usuarios Google no guardan contrasena local.
 - Socket.IO recibe el JWT en `socket.auth.token` y valida el token antes de registrar presencia.
-- `GOOGLE_ALLOWED_DOMAIN` es opcional y restringe cuentas Google por dominio `hd`.
+- `GOOGLE_ALLOWED_DOMAIN` es opcional y restringe cuentas Google por dominio.
+- `GOOGLE_ALLOWED_EMAILS` permite cerrar acceso a correos concretos.
+- `GOOGLE_ADMIN_EMAILS` permite que el correo del profesor se cree como admin.
 - Los usuarios Google se guardan con `provider='google'` y `google_id`.
 - Eventos Socket.IO: `ticket:created`, `ticket:updated`, `ticket:status-updated`, `ticket:deleted`, `comment:created`.
 
@@ -147,7 +203,7 @@ Frontend: [http://localhost:5173](http://localhost:5173/)
 - Si `3000` esta ocupado, cambia `PORT` en backend y actualiza `VITE_API_URL` en frontend.
 - Si Vite usa otro puerto distinto a `5173`, actualiza `FRONTEND_URL` para CORS y Socket.IO.
 - Si falta `JWT_SECRET`, el backend no debe arrancar.
-- Si Google no esta configurado, el login local funciona y el boton de Google queda oculto.
+- Si Google no esta configurado, el login local funciona y el boton de Google queda deshabilitado.
 
 ## Checklist demo
 
