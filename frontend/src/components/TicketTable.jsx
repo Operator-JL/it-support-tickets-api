@@ -67,7 +67,7 @@ function TicketTable({
   updatingTicketId,
 }) {
   const role = String(user?.role || "").toLowerCase();
-  const canSupport = ["it", "admin"].includes(role);
+  const canSupport = ["soporte", "it", "admin"].includes(role);
   const canDelete = role === "admin";
   const hasActions = Boolean(onView || onDelete);
 

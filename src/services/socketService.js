@@ -6,7 +6,7 @@ const setSocketServer = (io) => {
   ioInstance = io;
 };
 
-// emite un evento en tiempo real a todos los clientes conectados
+// evento en tiempo real a todos los clientes conectados
 const emitSocketEvent = (eventName, payload) => {
   // si socket.io aun no esta listo, no hace nada
   if (!ioInstance) {

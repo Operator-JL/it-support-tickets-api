@@ -1,7 +1,10 @@
+import { GoogleLogin } from "@react-oauth/google";
 import { useState } from "react";
 import sistLogo from "../assets/brand/sist-logo.png";
 
-function LoginPage({ onLogin, sessionMessage = "" }) {
+const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+
+function LoginPage({ onGoogleLogin, onLogin, sessionMessage = "" }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -15,7 +18,26 @@ function LoginPage({ onLogin, sessionMessage = "" }) {
     try {
       await onLogin({ email, password });
     } catch (loginError) {
-      setError(loginError.message || "No se pudo iniciar sesión.");
+      setError(loginError.message || "No se pudo iniciar sesion.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setError("");
+
+    if (!credentialResponse.credential) {
+      setError("Google no devolvio credencial.");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      await onGoogleLogin(credentialResponse.credential);
+    } catch (loginError) {
+      setError(loginError.message || "No se pudo iniciar sesion con Google.");
     } finally {
       setIsLoading(false);
     }
@@ -25,17 +47,17 @@ function LoginPage({ onLogin, sessionMessage = "" }) {
     <main className="login-screen">
       <section className="login-hero" aria-label="Marca SIST">
         <img src={sistLogo} alt="SIST" className="login-hero__logo" />
-        <h1>Sistema Interno de Soporte Técnico</h1>
-        <span>Soporte IT claro, rápido y organizado.</span>
+        <h1>Sistema Interno de Soporte Tecnico</h1>
+        <span>Soporte IT claro, rapido y organizado.</span>
       </section>
 
       <section className="login-card" aria-labelledby="login-title">
-        <h1 id="login-title">Iniciar sesión</h1>
+        <h1 id="login-title">Iniciar sesion</h1>
         <p>Accede con tu usuario registrado en el servidor.</p>
 
         <form className="login-form" onSubmit={handleSubmit}>
           <label className="form-field">
-            <span>Correo electrónico</span>
+            <span>Correo electronico</span>
             <input
               autoComplete="email"
               disabled={isLoading}
@@ -47,7 +69,7 @@ function LoginPage({ onLogin, sessionMessage = "" }) {
           </label>
 
           <label className="form-field">
-            <span>Contraseña</span>
+            <span>Contrasena</span>
             <input
               autoComplete="current-password"
               disabled={isLoading}
@@ -65,9 +87,25 @@ function LoginPage({ onLogin, sessionMessage = "" }) {
           )}
 
           <button className="login-button" disabled={isLoading} type="submit">
-            {isLoading ? "Validando..." : "Iniciar sesión"}
+            {isLoading ? "Validando..." : "Iniciar sesion"}
           </button>
         </form>
+
+        {googleClientId && (
+          <div className="google-login-wrap">
+            <div className="login-divider" aria-hidden="true">
+              <span />
+              <strong>o</strong>
+              <span />
+            </div>
+            <GoogleLogin
+              onError={() => setError("No se pudo iniciar sesion con Google.")}
+              onSuccess={handleGoogleSuccess}
+              theme="filled_black"
+              width="100%"
+            />
+          </div>
+        )}
       </section>
     </main>
   );

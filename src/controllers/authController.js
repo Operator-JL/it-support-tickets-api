@@ -1,36 +1,53 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { sql, getConnection } = require('../config/db');
-const { setUserPresence } = require('../services/presenceService');
+const { OAuth2Client } = require('google-auth-library');
+const { getConnection } = require('../config/db');
+const {
+  createGoogleUser,
+  createLocalUser,
+  getUserByEmail,
+  getUserById,
+  linkGoogleUser,
+  touchLastLogin
+} = require('../services/userService');
+const {
+  DEFAULT_ROLE,
+  getTokenPayload,
+  mapPublicUser,
+  mapSessionUser
+} = require('../utils/userUtils');
 
-const DEFAULT_ROLE = 'user';
-
-const getUserRole = (user) => {
-  const role = user.Role || user.role || DEFAULT_ROLE;
-  return typeof role === 'string' ? role.toLowerCase() : DEFAULT_ROLE;
+const getAuthEmail = (body = {}) => {
+  const value = body.email !== undefined ? body.email : body.correo;
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
 };
 
-const mapUser = (user) => {
-  return {
-    id: user.Id || user.id,
-    name: user.Name || user.name,
-    email: user.Email || user.email,
-    role: getUserRole(user),
-    is_active: user.is_active !== undefined ? user.is_active : user.IsActive
-  };
+const getAuthName = (body = {}) => {
+  const value = body.name !== undefined ? body.name : body.nombre;
+  return typeof value === 'string' ? value.trim() : '';
+};
+
+const getCleanPassword = (password) => {
+  return typeof password === 'string' ? password.trim() : '';
 };
 
 const createToken = (user) => {
   return jwt.sign(
-    {
-      id: user.Id || user.id,
-      name: user.Name || user.name,
-      email: user.Email || user.email,
-      role: getUserRole(user)
-    },
+    getTokenPayload(user),
     process.env.JWT_SECRET,
     { expiresIn: '1h' }
   );
+};
+
+const sendAuthResponse = async (res, pool, user) => {
+  const sessionUser = mapSessionUser(user);
+
+  await touchLastLogin(pool, sessionUser.id);
+
+  return res.status(200).json({
+    token: createToken(user),
+    user: sessionUser
+  });
 };
 
 const home = (req, res) => {
@@ -42,45 +59,21 @@ const home = (req, res) => {
 
 const register = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const cleanName = getAuthName(req.body);
+    const cleanEmail = getAuthEmail(req.body);
+    const cleanPassword = getCleanPassword(req.body.password);
 
-    if (name === undefined || email === undefined || password === undefined) {
+    if (!cleanName || !cleanEmail || !cleanPassword) {
       return res.status(400).json({
         status: 400,
         message: 'Name, email and password are required'
       });
     }
 
-    if (
-      typeof name !== 'string' ||
-      typeof email !== 'string' ||
-      typeof password !== 'string'
-    ) {
-      return res.status(400).json({
-        status: 400,
-        message: 'Name, email and password must be text'
-      });
-    }
-
-    const cleanName = name.trim();
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanPassword = password.trim();
-
-    if (!cleanName || !cleanEmail || !cleanPassword) {
-      return res.status(400).json({
-        status: 400,
-        message: 'Name, email and password cannot be empty'
-      });
-    }
-
     const pool = await getConnection();
+    const existingUser = await getUserByEmail(pool, cleanEmail);
 
-    const existingUser = await pool
-      .request()
-      .input('Email', sql.NVarChar(150), cleanEmail)
-      .query('SELECT Id FROM Users WHERE Email = @Email');
-
-    if (existingUser.recordset.length > 0) {
+    if (existingUser) {
       return res.status(409).json({
         status: 409,
         message: 'Email already exists'
@@ -88,25 +81,17 @@ const register = async (req, res) => {
     }
 
     const passwordHash = await bcrypt.hash(cleanPassword, 10);
-
-    const result = await pool
-      .request()
-      .input('Name', sql.NVarChar(100), cleanName)
-      .input('Email', sql.NVarChar(150), cleanEmail)
-      .input('PasswordHash', sql.NVarChar(255), passwordHash)
-      .input('Role', sql.NVarChar(20), DEFAULT_ROLE)
-      .query(`
-        INSERT INTO Users (Name, Email, PasswordHash, Role)
-        OUTPUT INSERTED.Id, INSERTED.Name, INSERTED.Email, INSERTED.Role
-        VALUES (@Name, @Email, @PasswordHash, @Role)
-      `);
-
-    const user = result.recordset[0];
+    const user = await createLocalUser(pool, {
+      name: cleanName,
+      email: cleanEmail,
+      passwordHash,
+      role: DEFAULT_ROLE
+    });
 
     return res.status(201).json({
       status: 201,
       message: 'User registered successfully',
-      user: mapUser(user)
+      user: mapPublicUser(user)
     });
   } catch (error) {
     if (error.number === 2601 || error.number === 2627) {
@@ -126,107 +111,189 @@ const register = async (req, res) => {
 
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const cleanEmail = getAuthEmail(req.body);
+    const cleanPassword = getCleanPassword(req.body.password);
 
-    if (email === undefined || password === undefined) {
+    if (!cleanEmail || !cleanPassword) {
       return res.status(400).json({
         status: 400,
         message: 'Email and password are required'
       });
     }
 
-    if (typeof email !== 'string' || typeof password !== 'string') {
-      return res.status(400).json({
-        status: 400,
-        message: 'Email and password must be text'
-      });
-    }
-
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanPassword = password.trim();
-
-    if (!cleanEmail || !cleanPassword) {
-      return res.status(400).json({
-        status: 400,
-        message: 'Email and password cannot be empty'
-      });
-    }
-
     const pool = await getConnection();
+    const user = await getUserByEmail(pool, cleanEmail, { includePassword: true });
 
-    const result = await pool
-      .request()
-      .input('Email', sql.NVarChar(150), cleanEmail)
-      .query('SELECT Id, Name, Email, PasswordHash, Role FROM Users WHERE Email = @Email');
-
-    if (result.recordset.length === 0) {
+    if (!user || !user.password_hash) {
       return res.status(401).json({
         status: 401,
-        message: 'Invalid credentials'
+        message: 'Credenciales invalidas'
       });
     }
 
-    const user = result.recordset[0];
-    const isPasswordValid = await bcrypt.compare(cleanPassword, user.PasswordHash);
+    const isPasswordValid = await bcrypt.compare(cleanPassword, user.password_hash);
 
     if (!isPasswordValid) {
       return res.status(401).json({
         status: 401,
-        message: 'Invalid credentials'
+        message: 'Credenciales invalidas'
       });
     }
 
-    await setUserPresence(user.Id || user.id, true);
+    if (!mapPublicUser(user).is_active) {
+      return res.status(403).json({
+        status: 403,
+        message: 'User is inactive'
+      });
+    }
 
-    const token = createToken(user);
-
-    return res.status(200).json({
-      status: 200,
-      message: 'Login successfully',
-      user: {
-        ...mapUser(user),
-        is_active: true
-      },
-      token
-    });
+    return sendAuthResponse(res, pool, user);
   } catch (error) {
+    console.error('[auth] Login failed:', error.message);
+
     return res.status(500).json({
       status: 500,
-      message: 'Error logging in',
-      error: error.message
+      message: 'Error interno del servidor'
+    });
+  }
+};
+
+const googleLogin = async (req, res) => {
+  try {
+    if (!process.env.GOOGLE_CLIENT_ID) {
+      return res.status(503).json({
+        status: 503,
+        message: 'Google login is not configured'
+      });
+    }
+
+    const credential = typeof req.body.credential === 'string'
+      ? req.body.credential.trim()
+      : '';
+
+    if (!credential) {
+      return res.status(400).json({
+        status: 400,
+        message: 'Google credential is required'
+      });
+    }
+
+    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+    const ticket = await client.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+    const payload = ticket.getPayload();
+
+    if (!payload?.email || payload.email_verified !== true) {
+      return res.status(401).json({
+        status: 401,
+        message: 'Google email is not verified'
+      });
+    }
+
+    if (
+      process.env.GOOGLE_ALLOWED_DOMAIN &&
+      payload.hd !== process.env.GOOGLE_ALLOWED_DOMAIN
+    ) {
+      return res.status(403).json({
+        status: 403,
+        message: 'Google account domain is not allowed'
+      });
+    }
+
+    const pool = await getConnection();
+    const email = payload.email.trim().toLowerCase();
+    const name = payload.name || email.split('@')[0];
+    let user = await getUserByEmail(pool, email);
+
+    if (user && !mapPublicUser(user).is_active) {
+      return res.status(403).json({
+        status: 403,
+        message: 'User is inactive'
+      });
+    }
+
+    if (user?.google_id && user.google_id !== payload.sub) {
+      return res.status(403).json({
+        status: 403,
+        message: 'Google account is not linked to this user'
+      });
+    }
+
+    if (user) {
+      user = await linkGoogleUser(pool, user.id, payload.sub);
+    } else {
+      user = await createGoogleUser(pool, {
+        name,
+        email,
+        googleId: payload.sub
+      });
+    }
+
+    return sendAuthResponse(res, pool, user);
+  } catch (error) {
+    console.error('[auth] Google login failed:', error.message);
+
+    if (error.message.includes('Google user schema is not ready')) {
+      return res.status(500).json({
+        status: 500,
+        message: error.message
+      });
+    }
+
+    return res.status(401).json({
+      status: 401,
+      message: 'Invalid Google credential'
     });
   }
 };
 
 const logout = async (req, res) => {
+  return res.status(200).json({
+    status: 200,
+    message: 'Logout successfully'
+  });
+};
+
+const profile = async (req, res) => {
   try {
-    await setUserPresence(req.user.id, false);
+    const pool = await getConnection();
+    const user = await getUserById(pool, req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        status: 404,
+        message: 'User not found'
+      });
+    }
+
+    if (!mapPublicUser(user).is_active) {
+      return res.status(403).json({
+        status: 403,
+        message: 'User is inactive'
+      });
+    }
 
     return res.status(200).json({
       status: 200,
-      message: 'Logout successfully'
+      message: 'Profile data',
+      user: mapSessionUser(user)
     });
   } catch (error) {
     return res.status(500).json({
       status: 500,
-      message: 'Error logging out',
+      message: 'Error getting profile',
       error: error.message
     });
   }
-};
-
-const profile = (req, res) => {
-  return res.status(200).json({
-    status: 200,
-    message: 'Profile data',
-    user: req.user
-  });
 };
 
 module.exports = {
   home,
   register,
   login,
+  googleLogin,
   logout,
   profile
 };

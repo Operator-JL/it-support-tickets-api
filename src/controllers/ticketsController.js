@@ -130,7 +130,6 @@ const createTicket = async (req, res) => {
     }
 
     const pool = await getConnection();
-
     const result = await pool
       .request()
       .input('UserId', sql.Int, req.user.id)
@@ -198,7 +197,6 @@ const getAllTickets = async (req, res) => {
 const getMyTickets = async (req, res) => {
   try {
     const pool = await getConnection();
-
     const result = await pool
       .request()
       .input('UserId', sql.Int, req.user.id)
@@ -233,7 +231,6 @@ const getTicketById = async (req, res) => {
     }
 
     const pool = await getConnection();
-
     const result = await pool
       .request()
       .input('Id', sql.Int, ticketId)
@@ -318,7 +315,6 @@ const updateTicket = async (req, res) => {
     }
 
     const pool = await getConnection();
-
     const result = await pool
       .request()
       .input('Id', sql.Int, ticketId)
@@ -394,6 +390,21 @@ const updateTicketStatus = async (req, res) => {
     }
 
     const pool = await getConnection();
+    const existingTicketResult = await pool
+      .request()
+      .input('Id', sql.Int, ticketId)
+      .query(getTicketSelectQuery('WHERE id = @Id'));
+
+    if (existingTicketResult.recordset.length === 0) {
+      return res.status(404).json({
+        status: 404,
+        message: 'Ticket not found'
+      });
+    }
+
+    const previousTicket = existingTicketResult.recordset[0];
+    const wasClosed = previousTicket.status === 'Cerrado';
+    const isClosing = cleanStatus === 'Cerrado';
 
     const result = await pool
       .request()
@@ -404,7 +415,11 @@ const updateTicketStatus = async (req, res) => {
         SET
           [status] = @Status,
           updated_at = GETDATE(),
-          closed_at = CASE WHEN @Status = 'Cerrado' THEN GETDATE() ELSE NULL END
+          closed_at = CASE
+            WHEN @Status = 'Cerrado' AND closed_at IS NULL THEN GETDATE()
+            WHEN @Status <> 'Cerrado' THEN NULL
+            ELSE closed_at
+          END
         ${getTicketOutputQuery()}
         WHERE id = @Id
       `);
@@ -418,7 +433,7 @@ const updateTicketStatus = async (req, res) => {
 
     const ticket = mapTicket(result.recordset[0]);
     emitSocketEvent('ticket:status-updated', { ticket });
-    if (ticket.status === 'Cerrado') {
+    if (!wasClosed && isClosing) {
       sendTicketClosedEmail(ticket);
     }
 

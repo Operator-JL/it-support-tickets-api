@@ -17,15 +17,33 @@ import {
   createTicket,
   deleteTicket,
   getTickets,
+  isSessionError,
   updateTicketStatus,
 } from "../services/api.js";
 import { getSocket } from "../services/socket.js";
 
 const roleLabels = {
   admin: "Administrador",
+  soporte: "Soporte",
+  usuario: "Usuario",
   it: "Soporte",
   user: "Usuario",
 };
+
+function normalizeRole(role) {
+  const cleanRole = String(role || "").toLowerCase();
+  if (cleanRole === "it") {
+    return "soporte";
+  }
+  if (cleanRole === "user") {
+    return "usuario";
+  }
+  return cleanRole;
+}
+
+function isAdminRole(role) {
+  return normalizeRole(role) === "admin";
+}
 
 const sectionCopy = {
   dashboard: {
@@ -46,6 +64,39 @@ const sectionCopy = {
   },
 };
 
+const sectionPaths = {
+  dashboard: "/",
+  tickets: "/tickets",
+  users: "/users",
+  reports: "/reports",
+};
+
+function getSectionFromPath(pathname) {
+  const cleanPath = String(pathname || "").toLowerCase();
+
+  if (cleanPath === "/users" || cleanPath === "/usuarios") {
+    return "users";
+  }
+
+  if (cleanPath === "/tickets") {
+    return "tickets";
+  }
+
+  if (cleanPath === "/reports" || cleanPath === "/reportes") {
+    return "reports";
+  }
+
+  return "dashboard";
+}
+
+function replacePathForSection(section) {
+  if (!window.history?.replaceState) {
+    return;
+  }
+
+  window.history.replaceState(null, "", sectionPaths[section] || "/");
+}
+
 function getTicketStatus(ticket) {
   return String(ticket.status || ticket.Status || "").trim();
 }
@@ -54,8 +105,10 @@ function getTicketId(ticket) {
   return ticket.id || ticket.Id;
 }
 
-function AdminDashboard({ token, user, onLogout }) {
-  const [activeSection, setActiveSection] = useState("dashboard");
+function AdminDashboard({ token, user, onLogout, onUnauthorized }) {
+  const [activeSection, setActiveSection] = useState(() =>
+    getSectionFromPath(window.location.pathname)
+  );
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [isLoadingTickets, setIsLoadingTickets] = useState(true);
@@ -65,7 +118,9 @@ function AdminDashboard({ token, user, onLogout }) {
   const [actionError, setActionError] = useState("");
   const [isRealtimeActive, setIsRealtimeActive] = useState(false);
   const userName = user?.name || user?.email || "Usuario";
-  const userRole = roleLabels[(user?.role || "").toLowerCase()] || "Usuario";
+  const userEmail = user?.email || "Sin correo";
+  const normalizedRole = normalizeRole(user?.role);
+  const userRole = roleLabels[normalizedRole] || "Usuario";
   const currentSection = sectionCopy[activeSection] || sectionCopy.dashboard;
 
   const loadTickets = useCallback(async ({ showLoading = true } = {}) => {
@@ -86,6 +141,11 @@ function AdminDashboard({ token, user, onLogout }) {
 
       setTickets(nextTickets);
     } catch (error) {
+      if (isSessionError(error) && onUnauthorized) {
+        onUnauthorized();
+        return;
+      }
+
       setTickets([]);
       setTicketsError(error.message || "No se pudieron cargar los tickets.");
     } finally {
@@ -93,7 +153,14 @@ function AdminDashboard({ token, user, onLogout }) {
         setIsLoadingTickets(false);
       }
     }
-  }, [token]);
+  }, [onUnauthorized, token]);
+
+  useEffect(() => {
+    if (activeSection === "users" && !isAdminRole(user?.role)) {
+      setActiveSection("dashboard");
+      replacePathForSection("dashboard");
+    }
+  }, [activeSection, user?.role]);
 
   useEffect(() => {
     loadTickets();
@@ -206,6 +273,11 @@ function AdminDashboard({ token, user, onLogout }) {
       setTickets((current) => [data.ticket, ...current]);
       setActiveSection("tickets");
     } catch (error) {
+      if (isSessionError(error) && onUnauthorized) {
+        onUnauthorized();
+        return;
+      }
+
       setActionError(error.message || "No se pudo crear el ticket.");
       throw error;
     } finally {
@@ -225,6 +297,11 @@ function AdminDashboard({ token, user, onLogout }) {
         setSelectedTicket(data.ticket);
       }
     } catch (error) {
+      if (isSessionError(error) && onUnauthorized) {
+        onUnauthorized();
+        return;
+      }
+
       setActionError(error.message || "No se pudo actualizar el estado.");
     } finally {
       setUpdatingTicketId("");
@@ -256,6 +333,11 @@ function AdminDashboard({ token, user, onLogout }) {
         setSelectedTicket(null);
       }
     } catch (error) {
+      if (isSessionError(error) && onUnauthorized) {
+        onUnauthorized();
+        return;
+      }
+
       setActionError(error.message || "No se pudo eliminar el ticket.");
     } finally {
       setUpdatingTicketId("");
@@ -314,11 +396,23 @@ function AdminDashboard({ token, user, onLogout }) {
     }
 
     if (activeSection === "users") {
-      return <UsersPage token={token} user={user} />;
+      return (
+        <UsersPage
+          onUnauthorized={onUnauthorized}
+          token={token}
+          user={user}
+        />
+      );
     }
 
     if (activeSection === "reports") {
-      return <ReportsPage tickets={tickets} isLoading={isLoadingTickets} />;
+      return (
+        <ReportsPage
+          error={ticketsError}
+          tickets={tickets}
+          isLoading={isLoadingTickets}
+        />
+      );
     }
 
     return (
@@ -351,8 +445,10 @@ function AdminDashboard({ token, user, onLogout }) {
         activeSection={activeSection}
         onNavigate={(section) => {
           setActiveSection(section);
+          replacePathForSection(section);
           setActionError("");
         }}
+        user={user}
       />
 
       <main className="dashboard-main">
@@ -378,6 +474,7 @@ function AdminDashboard({ token, user, onLogout }) {
             <div className="current-user" aria-label="Usuario actual">
               <div className="current-user__details">
                 <span>{userName}</span>
+                <small>{userEmail}</small>
                 <small>{userRole}</small>
               </div>
               <button className="logout-button" onClick={onLogout} type="button">
@@ -396,6 +493,7 @@ function AdminDashboard({ token, user, onLogout }) {
           token={token}
           user={user}
           onClose={() => setSelectedTicket(null)}
+          onUnauthorized={onUnauthorized}
           onSaved={handleTicketSaved}
         />
       )}

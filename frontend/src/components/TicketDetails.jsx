@@ -1,6 +1,6 @@
 import { MessageSquare, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { addComment, getComments, updateTicket } from "../services/api.js";
+import { addComment, getComments, isSessionError, updateTicket } from "../services/api.js";
 import { getSocket } from "../services/socket.js";
 
 const priorities = ["Baja", "Media", "Alta", "Urgente"];
@@ -24,9 +24,9 @@ function formatDate(value) {
   }).format(date);
 }
 
-function TicketDetails({ ticket, token, user, onClose, onSaved }) {
+function TicketDetails({ ticket, token, user, onClose, onSaved, onUnauthorized }) {
   const role = String(user?.role || "").toLowerCase();
-  const canSupport = ["it", "admin"].includes(role);
+  const canSupport = ["soporte", "it", "admin"].includes(role);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
   const [edit, setEdit] = useState(ticket);
@@ -58,6 +58,11 @@ function TicketDetails({ ticket, token, user, onClose, onSaved }) {
           setComments(Array.isArray(data.comments) ? data.comments : []);
         }
       } catch (loadError) {
+        if (isSessionError(loadError) && onUnauthorized) {
+          onUnauthorized();
+          return;
+        }
+
         if (active) {
           setError(loadError.message || "No se pudieron cargar los comentarios.");
         }
@@ -72,7 +77,7 @@ function TicketDetails({ ticket, token, user, onClose, onSaved }) {
     return () => {
       active = false;
     };
-  }, [ticket, token]);
+  }, [onUnauthorized, ticket, token]);
 
   useEffect(() => {
     let isActive = true;
@@ -137,6 +142,11 @@ function TicketDetails({ ticket, token, user, onClose, onSaved }) {
       setEdit(data.ticket);
       onSaved(data.ticket);
     } catch (saveError) {
+      if (isSessionError(saveError) && onUnauthorized) {
+        onUnauthorized();
+        return;
+      }
+
       setError(saveError.message || "No se pudo actualizar el ticket.");
     } finally {
       setSaving(false);
@@ -158,6 +168,11 @@ function TicketDetails({ ticket, token, user, onClose, onSaved }) {
       addCommentToState(data.comment);
       setNewComment("");
     } catch (commentError) {
+      if (isSessionError(commentError) && onUnauthorized) {
+        onUnauthorized();
+        return;
+      }
+
       setError(commentError.message || "No se pudo agregar el comentario.");
     } finally {
       setSaving(false);

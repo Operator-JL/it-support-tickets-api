@@ -78,7 +78,7 @@ function BarList({ title, items, total }) {
   );
 }
 
-function ReportsPage({ tickets, isLoading }) {
+function ReportsPage({ tickets, isLoading, error = "" }) {
   const total = tickets.length;
   const statusCounts = countBy(tickets, ["status", "Status"]);
   const priorityCounts = Object.entries(countBy(tickets, ["priority", "Priority"]));
@@ -92,6 +92,14 @@ function ReportsPage({ tickets, isLoading }) {
     return (
       <section className="rounded-2xl border border-slate-200 bg-white p-6 text-center font-bold text-slate-500 shadow-sm">
         Cargando reportes...
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center font-bold text-red-700 shadow-sm">
+        {error}
       </section>
     );
   }

@@ -1,11 +1,17 @@
 export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 const errorMessages = {
-  "invalid credentials": "Credenciales inválidas.",
-  unauthorized: "Sesión inválida o expirada.",
-  "invalid or expired token": "Sesión inválida o expirada.",
-  "authorization token is required": "Sesión inválida o expirada.",
-  "you do not have permission to perform this action": "No tienes permiso para realizar esta acción.",
+  "credenciales invalidas": "Credenciales invalidas.",
+  "invalid credentials": "Credenciales invalidas.",
+  unauthorized: "Sesion invalida o expirada.",
+  "invalid or expired token": "Sesion invalida o expirada.",
+  "authorization token is required": "Sesion invalida o expirada.",
+  "you do not have permission to perform this action": "No tienes permiso para realizar esta accion.",
+  "user is inactive": "Esta cuenta esta desactivada.",
+  "google login is not configured": "Google no esta configurado en el servidor.",
+  "google credential is required": "Google no devolvio credencial.",
+  "invalid google credential": "Credencial de Google invalida.",
+  "google account is not linked to this user": "Esta cuenta de Google no esta vinculada a este usuario.",
   "ticket not found": "Ticket no encontrado.",
   "user not found": "Usuario no encontrado.",
   "failed to fetch": "No se pudo conectar con el servidor.",
@@ -38,6 +44,7 @@ async function request(path, options = {}) {
     if (!response.ok) {
       const error = new Error(getFriendlyErrorMessage(data.message));
       error.status = response.status;
+      error.data = data;
       throw error;
     }
 
@@ -51,10 +58,28 @@ async function request(path, options = {}) {
   }
 }
 
+function buildSessionError() {
+  const error = new Error("Sesion invalida o expirada.");
+  error.status = 401;
+  return error;
+}
+
+function isSessionError(error) {
+  return error.status === 401 ||
+    (error.status === 403 && error.data?.message === "User is inactive");
+}
+
 export function login(email, password) {
   return request("/login", {
     method: "POST",
     body: { email, password },
+  });
+}
+
+export function googleLogin(credential) {
+  return request("/auth/google", {
+    method: "POST",
+    body: { credential },
   });
 }
 
@@ -77,12 +102,12 @@ export async function getTickets(token) {
       token,
     });
   } catch (error) {
-    if (error.status === 401) {
-      throw new Error("Sesión inválida o expirada.");
+    if (isSessionError(error)) {
+      throw buildSessionError();
     }
 
     if (
-      error.message === "Sesión inválida o expirada." ||
+      error.message === "Sesion invalida o expirada." ||
       error.message === "No se pudo conectar con el servidor."
     ) {
       throw error;
@@ -143,6 +168,22 @@ export function getUsers(token) {
   });
 }
 
+export function createUser(token, user) {
+  return request("/users", {
+    method: "POST",
+    token,
+    body: user,
+  });
+}
+
+export function updateUser(token, userId, user) {
+  return request(`/users/${userId}`, {
+    method: "PUT",
+    token,
+    body: user,
+  });
+}
+
 export function updateUserRole(token, userId, role) {
   return request(`/users/${userId}/role`, {
     method: "PATCH",
@@ -150,3 +191,21 @@ export function updateUserRole(token, userId, role) {
     body: { role },
   });
 }
+
+export function updateUserStatus(token, userId, isActive) {
+  return request(`/users/${userId}/status`, {
+    method: "PATCH",
+    token,
+    body: { is_active: isActive },
+  });
+}
+
+export function updateUserPassword(token, userId, password) {
+  return request(`/users/${userId}/password`, {
+    method: "PATCH",
+    token,
+    body: { password },
+  });
+}
+
+export { isSessionError };

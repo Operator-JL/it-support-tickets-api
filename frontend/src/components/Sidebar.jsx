@@ -13,7 +13,12 @@ const menuItems = [
   { id: "reports", label: "Reportes", icon: BarChart3 },
 ];
 
-function Sidebar({ activeSection, onNavigate }) {
+function Sidebar({ activeSection, onNavigate, user }) {
+  const isAdmin = String(user?.role || "").toLowerCase() === "admin";
+  const visibleMenuItems = menuItems.filter((item) => {
+    return item.id !== "users" || isAdmin;
+  });
+
   return (
     <aside className="sidebar">
       <div className="sidebar__brand">
@@ -21,7 +26,7 @@ function Sidebar({ activeSection, onNavigate }) {
       </div>
 
       <nav className="sidebar__nav" aria-label="Menú principal">
-        {menuItems.map((item) => {
+        {visibleMenuItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeSection === item.id;
 

@@ -24,19 +24,162 @@ BEGIN
     id INT IDENTITY(1,1) NOT NULL,
     [name] NVARCHAR(100) NOT NULL,
     email NVARCHAR(150) NOT NULL,
-    PasswordHash NVARCHAR(255) NOT NULL,
+    PasswordHash NVARCHAR(255) NULL,
     [role] NVARCHAR(20) NOT NULL
-      CONSTRAINT DF_Users_role DEFAULT ('user'),
+      CONSTRAINT DF_Users_role DEFAULT ('usuario'),
     is_active BIT NOT NULL
-      CONSTRAINT DF_Users_is_active DEFAULT (0),
+      CONSTRAINT DF_Users_is_active DEFAULT (1),
+    is_online BIT NOT NULL
+      CONSTRAINT DF_Users_is_online DEFAULT (0),
+    provider NVARCHAR(20) NOT NULL
+      CONSTRAINT DF_Users_provider DEFAULT ('local'),
+    google_id NVARCHAR(255) NULL,
     created_at DATETIME NOT NULL
       CONSTRAINT DF_Users_created_at DEFAULT (GETDATE()),
+    updated_at DATETIME NOT NULL
+      CONSTRAINT DF_Users_updated_at DEFAULT (GETDATE()),
+    last_login_at DATETIME NULL,
 
     CONSTRAINT PK_Users PRIMARY KEY (id),
     CONSTRAINT UQ_Users_email UNIQUE (email),
-    CONSTRAINT CK_Users_role CHECK ([role] IN ('user', 'it', 'admin'))
+    CONSTRAINT CK_Users_role CHECK ([role] IN ('admin', 'soporte', 'usuario', 'it', 'user')),
+    CONSTRAINT CK_Users_provider CHECK (provider IN ('local', 'google'))
   );
+
+  CREATE UNIQUE INDEX UX_Users_google_id
+    ON dbo.Users (google_id)
+    WHERE google_id IS NOT NULL;
 END;
+GO
+
+-- migraciones pequenas para bases ya creadas con la version anterior
+IF COL_LENGTH('dbo.Users', 'is_active') IS NULL
+BEGIN
+  ALTER TABLE dbo.Users
+    ADD is_active BIT NOT NULL
+      CONSTRAINT DF_Users_is_active DEFAULT (1) WITH VALUES;
+END;
+GO
+
+IF COL_LENGTH('dbo.Users', 'PasswordHash') IS NOT NULL
+BEGIN
+  ALTER TABLE dbo.Users ALTER COLUMN PasswordHash NVARCHAR(255) NULL;
+END;
+GO
+
+IF COL_LENGTH('dbo.Users', 'is_online') IS NULL
+BEGIN
+  ALTER TABLE dbo.Users
+    ADD is_online BIT NOT NULL
+      CONSTRAINT DF_Users_is_online DEFAULT (0);
+
+  -- antes is_active se usaba como presencia; desde ahora is_active es cuenta habilitada
+  UPDATE dbo.Users SET is_active = 1;
+END;
+GO
+
+IF COL_LENGTH('dbo.Users', 'provider') IS NULL
+BEGIN
+  ALTER TABLE dbo.Users
+    ADD provider NVARCHAR(20) NOT NULL
+      CONSTRAINT DF_Users_provider DEFAULT ('local') WITH VALUES;
+END;
+GO
+
+IF COL_LENGTH('dbo.Users', 'google_id') IS NULL
+BEGIN
+  ALTER TABLE dbo.Users ADD google_id NVARCHAR(255) NULL;
+END;
+GO
+
+IF COL_LENGTH('dbo.Users', 'updated_at') IS NULL
+BEGIN
+  ALTER TABLE dbo.Users
+    ADD updated_at DATETIME NOT NULL
+      CONSTRAINT DF_Users_updated_at DEFAULT (GETDATE()) WITH VALUES;
+END;
+GO
+
+IF COL_LENGTH('dbo.Users', 'last_login_at') IS NULL
+BEGIN
+  ALTER TABLE dbo.Users ADD last_login_at DATETIME NULL;
+END;
+GO
+
+IF NOT EXISTS (
+  SELECT 1
+  FROM sys.key_constraints
+  WHERE [name] = 'UQ_Users_email'
+    AND parent_object_id = OBJECT_ID('dbo.Users')
+)
+AND NOT EXISTS (
+  SELECT 1
+  FROM dbo.Users
+  GROUP BY email
+  HAVING COUNT(*) > 1
+)
+BEGIN
+  ALTER TABLE dbo.Users
+    ADD CONSTRAINT UQ_Users_email UNIQUE (email);
+END;
+GO
+
+IF OBJECT_ID('dbo.CK_Users_role', 'C') IS NOT NULL
+BEGIN
+  ALTER TABLE dbo.Users DROP CONSTRAINT CK_Users_role;
+END;
+GO
+
+ALTER TABLE dbo.Users
+  ADD CONSTRAINT CK_Users_role CHECK ([role] IN ('admin', 'soporte', 'usuario', 'it', 'user'));
+GO
+
+IF OBJECT_ID('dbo.CK_Users_provider', 'C') IS NULL
+BEGIN
+  ALTER TABLE dbo.Users
+    ADD CONSTRAINT CK_Users_provider CHECK (provider IN ('local', 'google'));
+END;
+GO
+
+IF NOT EXISTS (
+  SELECT 1
+  FROM sys.indexes
+  WHERE name = 'UX_Users_google_id'
+    AND object_id = OBJECT_ID('dbo.Users')
+)
+BEGIN
+  CREATE UNIQUE INDEX UX_Users_google_id
+    ON dbo.Users (google_id)
+    WHERE google_id IS NOT NULL;
+END;
+GO
+
+UPDATE dbo.Users SET [role] = 'usuario' WHERE [role] = 'user';
+UPDATE dbo.Users SET [role] = 'soporte' WHERE [role] = 'it';
+GO
+
+-- usuarios demo oficiales
+MERGE dbo.Users AS target
+USING (
+  VALUES
+    (N'Administrador SIST', N'admin@sist.local', N'$2b$10$gVeaQVgkN3ENGaeld7NzcueePot1wflTkPABB0tPoZSXMiFlBhaWO', N'admin'),
+    (N'Soporte SIST', N'soporte@sist.local', N'$2b$10$RYrP/yqtPkiNnorO6qixQ.9ZGvWEGCAKjeg83szA2lmIV94qMdkHe', N'soporte'),
+    (N'Usuario Demo', N'usuario@sist.local', N'$2b$10$SQVuvOnKoVKBFuT/dn1nCO9LcngC6d1bU534.h.V7ISEMerBayf0e', N'usuario')
+) AS source ([name], email, PasswordHash, [role])
+ON target.email = source.email
+WHEN MATCHED THEN
+  UPDATE SET
+    target.[name] = source.[name],
+    target.PasswordHash = source.PasswordHash,
+    target.[role] = source.[role],
+    target.is_active = 1,
+    target.is_online = 0,
+    target.provider = 'local',
+    target.google_id = NULL,
+    target.updated_at = GETDATE()
+WHEN NOT MATCHED THEN
+  INSERT ([name], email, PasswordHash, [role], is_active, is_online, provider)
+  VALUES (source.[name], source.email, source.PasswordHash, source.[role], 1, 0, 'local');
 GO
 
 -- tabla principal de tickets
@@ -78,6 +221,35 @@ BEGIN
 END;
 GO
 
+IF OBJECT_ID('dbo.Tickets', 'U') IS NOT NULL
+  AND COL_LENGTH('dbo.Tickets', 'assigned_to_user_id') IS NULL
+BEGIN
+  ALTER TABLE dbo.Tickets ADD assigned_to_user_id INT NULL;
+END;
+GO
+
+IF OBJECT_ID('dbo.Tickets', 'U') IS NOT NULL
+  AND OBJECT_ID('dbo.FK_Tickets_Users_Assigned', 'F') IS NULL
+BEGIN
+  ALTER TABLE dbo.Tickets
+    ADD CONSTRAINT FK_Tickets_Users_Assigned FOREIGN KEY (assigned_to_user_id)
+      REFERENCES dbo.Users (id);
+END;
+GO
+
+IF OBJECT_ID('dbo.Tickets', 'U') IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1
+    FROM sys.indexes
+    WHERE name = 'IX_Tickets_assigned_to_user_id'
+      AND object_id = OBJECT_ID('dbo.Tickets')
+  )
+BEGIN
+  CREATE INDEX IX_Tickets_assigned_to_user_id
+    ON dbo.Tickets (assigned_to_user_id);
+END;
+GO
+
 -- tabla de comentarios del ticket
 -- ticket_id indica a que ticket pertenece el comentario
 -- user_id indica quien escribio el comentario
@@ -113,7 +285,11 @@ SELECT
   email,
   [role],
   is_active,
-  created_at
+  is_online,
+  provider,
+  created_at,
+  updated_at,
+  last_login_at
 FROM dbo.Users
 ORDER BY created_at DESC;
 GO

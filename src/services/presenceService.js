@@ -1,117 +1,161 @@
-const { Resend } = require('resend');
+const jwt = require('jsonwebtoken');
+const { sql, getConnection } = require('../config/db');
+const { getPresenceColumn, getUserById } = require('./userService');
+const {
+  getTokenPayload,
+  mapPublicUser,
+  mapSessionUser
+} = require('../utils/userUtils');
 
-// checa si el resend esta true en el env
-const isEmailEnabled = () => {
-  return process.env.EMAIL_ENABLED === 'true';
+const userSockets = new Map();
+const userPresenceVersions = new Map();
+
+const bumpPresenceVersion = (userId) => {
+  const nextVersion = (userPresenceVersions.get(userId) || 0) + 1;
+  userPresenceVersions.set(userId, nextVersion);
+  return nextVersion;
 };
 
-// separa los correos destino por coma y limpia espacios
-const getEmailRecipients = (value) => {
-  if (!value) {
-    return [];
-  }
-
-  return String(value)
-    .split(',')
-    .map((email) => email.trim())
-    .filter(Boolean);
-};
-
-// obtiene la configuracion del env
-const getEmailConfig = () => {
-  return {
-    apiKey: process.env.RESEND_API_KEY,
-    from: process.env.EMAIL_FROM,
-    to: getEmailRecipients(process.env.EMAIL_TO)
-  };
-};
-
-// recorta la descripcion para que el correo no quede tan largo
-const getShortDescription = (description) => {
-  if (!description) {
-    return 'Sin descripcion.';
-  }
-
-  const cleanDescription = String(description).trim();
-
-  if (cleanDescription.length <= 180) {
-    return cleanDescription;
-  }
-
-  return `${cleanDescription.slice(0, 180)}...`;
-};
-
-// arma el texto que se mandara dentro del correo
-const buildTicketEmailText = (ticket, intro) => {
-  return [
-    intro,
-    '',
-    `Ticket: ${ticket.title}`,
-    `Prioridad: ${ticket.priority}`,
-    `Estado: ${ticket.status}`,
-    `Categoria: ${ticket.category || 'Sin categoria'}`,
-    '',
-    'Descripcion:',
-    getShortDescription(ticket.description)
-  ].join('\n');
-};
-
-// envia el correo del ticket usando resend
-const sendTicketEmail = async ({ subject, intro, ticket }) => {
-  if (!isEmailEnabled()) {
+const setUserPresenceIfCurrent = async (userId, isOnline, version) => {
+  if (userPresenceVersions.get(userId) !== version) {
     return;
   }
 
-  const { apiKey, from, to } = getEmailConfig();
+  await setUserPresence(userId, isOnline);
 
-  // si falla el env, trata de no enviar el correo
-  if (!apiKey || !from || to.length === 0) {
-    console.warn('Email notification skipped: missing RESEND_API_KEY, EMAIL_FROM or EMAIL_TO.');
+  if (!isOnline && userPresenceVersions.get(userId) !== version && userSockets.has(userId)) {
+    await setUserPresence(userId, true);
+  }
+};
+
+// obtiene el token que manda el frontend por socket
+const getSocketToken = (socket) => {
+  const authToken = socket.handshake.auth && socket.handshake.auth.token;
+  const headerToken = socket.handshake.headers.authorization;
+
+  if (authToken) {
+    return authToken;
+  }
+
+  if (headerToken && headerToken.startsWith('Bearer ')) {
+    return headerToken.slice(7);
+  }
+
+  return null;
+};
+
+// valida el jwt del socket y regresa el usuario activo desde la base
+const getSocketUser = async (socket) => {
+  const token = getSocketToken(socket);
+
+  if (!token) {
+    throw new Error('Token is required');
+  }
+
+  const decodedUser = getTokenPayload(jwt.verify(token, process.env.JWT_SECRET));
+  const userId = Number(decodedUser.id);
+
+  if (!Number.isInteger(userId) || userId <= 0) {
+    throw new Error('Invalid user');
+  }
+
+  const pool = await getConnection();
+  const user = await getUserById(pool, userId);
+
+  if (!user || !mapPublicUser(user).is_active) {
+    throw new Error('Invalid or inactive user');
+  }
+
+  return mapSessionUser(user);
+};
+
+// marca si el usuario esta conectado en tiempo real
+const setUserPresence = async (userId, isOnline) => {
+  const pool = await getConnection();
+  const presenceColumn = await getPresenceColumn(pool);
+
+  if (!presenceColumn) {
     return;
   }
 
-  try {
-    const resend = new Resend(apiKey);
+  await pool
+    .request()
+    .input('UserId', sql.Int, Number(userId))
+    .input('IsOnline', sql.Bit, isOnline ? 1 : 0)
+    .query(`
+      UPDATE Users
+      SET ${presenceColumn} = @IsOnline
+      WHERE id = @UserId
+    `);
+};
 
-    const result = await resend.emails.send({
-      from,
-      to,
-      subject,
-      text: buildTicketEmailText(ticket, intro)
-    });
+// al iniciar el servidor, pone todos los usuarios como desconectados
+const resetAllUserPresence = async () => {
+  userSockets.clear();
+  userPresenceVersions.clear();
 
-    // si resend responde con error, lo muestra en consola
-    if (result?.error) {
-      console.warn(`Email notification failed: ${result.error.message || result.error}`);
-      return;
-    }
+  const pool = await getConnection();
+  const presenceColumn = await getPresenceColumn(pool);
 
-    console.log('[email] notificacion enviada');
-  } catch (error) {
-    console.warn(`Email notification failed: ${error.message}`);
+  if (!presenceColumn) {
+    return;
+  }
+
+  await pool
+    .request()
+    .query(`
+      UPDATE Users
+      SET ${presenceColumn} = 0
+    `);
+};
+
+// registra un socket conectado para un usuario
+const registerUserSocket = async (userId, socketId) => {
+  if (!userId || !socketId) {
+    return;
+  }
+
+  const normalizedUserId = Number(userId);
+
+  if (!userSockets.has(normalizedUserId)) {
+    userSockets.set(normalizedUserId, new Set());
+  }
+
+  userSockets.get(normalizedUserId).add(socketId);
+
+  bumpPresenceVersion(normalizedUserId);
+  await setUserPresence(normalizedUserId, true);
+};
+
+// quita un socket cuando el usuario cierra pestaña o se desconecta
+const unregisterUserSocket = async (userId, socketId) => {
+  if (!userId || !socketId) {
+    return;
+  }
+
+  const normalizedUserId = Number(userId);
+  const sockets = userSockets.get(normalizedUserId);
+
+  if (!sockets) {
+    const version = bumpPresenceVersion(normalizedUserId);
+    await setUserPresenceIfCurrent(normalizedUserId, false, version);
+    return;
+  }
+
+  sockets.delete(socketId);
+
+  // si ya no tiene pestanas abiertas, lo marca desconectado
+  if (sockets.size === 0) {
+    userSockets.delete(normalizedUserId);
+    const version = bumpPresenceVersion(normalizedUserId);
+    await setUserPresenceIfCurrent(normalizedUserId, false, version);
   }
 };
 
-// manda correo cuando se crea un ticket nuevo
-const sendTicketCreatedEmail = (ticket) => {
-  return sendTicketEmail({
-    subject: `Nuevo ticket SIST: ${ticket.title}`,
-    intro: 'Se creo un nuevo ticket en SIST.',
-    ticket
-  });
-};
-
-// manda correo cuando un ticket se cierra
-const sendTicketClosedEmail = (ticket) => {
-  return sendTicketEmail({
-    subject: `Ticket cerrado SIST: ${ticket.title}`,
-    intro: 'Un ticket fue marcado como Cerrado en SIST.',
-    ticket
-  });
-};
-
-// exporta a controllers
 module.exports = {
-  sendTicketCreatedEmail,
-  sendTicketClosedEmail
+  getSocketUser,
+  setUserPresence,
+  resetAllUserPresence,
+  registerUserSocket,
+  unregisterUserSocket
 };
