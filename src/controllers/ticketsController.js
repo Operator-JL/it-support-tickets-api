@@ -1,7 +1,7 @@
 const { sql, getConnection } = require('../config/db');
 const { isAdmin, isSupportRole } = require('../middlewares/roleMiddleware');
 const { sendTicketClosedEmail, sendTicketCreatedEmail } = require('../services/emailService');
-const { emitSocketEvent } = require('../services/socketService');
+const { emitTicketEvent } = require('../services/socketService');
 
 const allowedStatuses = ['Abierto', 'En proceso', 'Cerrado'];
 const allowedPriorities = ['Baja', 'Media', 'Alta', 'Urgente'];
@@ -144,7 +144,7 @@ const createTicket = async (req, res) => {
       `);
 
     const ticket = mapTicket(result.recordset[0]);
-    emitSocketEvent('ticket:created', { ticket });
+    emitTicketEvent('ticket:created', { ticket }, ticket);
     sendTicketCreatedEmail(ticket);
 
     return res.status(201).json({
@@ -342,7 +342,7 @@ const updateTicket = async (req, res) => {
     }
 
     const ticket = mapTicket(result.recordset[0]);
-    emitSocketEvent('ticket:updated', { ticket });
+    emitTicketEvent('ticket:updated', { ticket }, ticket);
 
     return res.status(200).json({
       status: 200,
@@ -432,7 +432,7 @@ const updateTicketStatus = async (req, res) => {
     }
 
     const ticket = mapTicket(result.recordset[0]);
-    emitSocketEvent('ticket:status-updated', { ticket });
+    emitTicketEvent('ticket:status-updated', { ticket }, ticket);
     if (!wasClosed && isClosing) {
       sendTicketClosedEmail(ticket);
     }
@@ -501,10 +501,10 @@ const deleteTicket = async (req, res) => {
     transactionStarted = false;
 
     const ticket = mapTicket(ticketResult.recordset[0]);
-    emitSocketEvent('ticket:deleted', {
+    emitTicketEvent('ticket:deleted', {
       ticketId,
       ticket
-    });
+    }, ticket);
 
     return res.status(200).json({
       status: 200,

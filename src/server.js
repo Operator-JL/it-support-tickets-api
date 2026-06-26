@@ -8,7 +8,7 @@ const authRoutes = require('./routes/authRoutes');
 const ticketsRoutes = require('./routes/ticketsRoutes');
 const ticketCommentsRoutes = require('./routes/ticketCommentsRoutes');
 const usersRoutes = require('./routes/usersRoutes');
-const { setSocketServer } = require('./services/socketService');
+const { registerSocketRooms, setSocketServer } = require('./services/socketService');
 const {
   getSocketUser,
   resetAllUserPresence,
@@ -48,6 +48,7 @@ io.on('connection', (socket) => {
   const userId = socket.user && socket.user.id;
 
   console.log(`Socket connected: ${socket.id}`);
+  registerSocketRooms(socket, socket.user);
 
   registerUserSocket(userId, socket.id).catch((error) => {
     console.error('Error updating user presence on socket connect:', error.message);

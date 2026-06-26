@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   createUser,
   getUsers,
+  isSessionError,
   updateUserRole,
   updateUserStatus,
 } from "../services/api.js";
@@ -64,7 +65,7 @@ function UsersPage({ token, user, onUnauthorized }) {
   const [error, setError] = useState("");
 
   const handleError = useCallback((nextError, fallback) => {
-    if (nextError.status === 401 && onUnauthorized) {
+    if (isSessionError(nextError) && onUnauthorized) {
       onUnauthorized();
       return;
     }

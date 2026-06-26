@@ -31,6 +31,12 @@ const getCleanPassword = (password) => {
   return typeof password === 'string' ? password.trim() : '';
 };
 
+const getAllowedGoogleDomain = () => {
+  return typeof process.env.GOOGLE_ALLOWED_DOMAIN === 'string'
+    ? process.env.GOOGLE_ALLOWED_DOMAIN.trim().toLowerCase()
+    : '';
+};
+
 const createToken = (user) => {
   return jwt.sign(
     getTokenPayload(user),
@@ -192,10 +198,12 @@ const googleLogin = async (req, res) => {
       });
     }
 
-    if (
-      process.env.GOOGLE_ALLOWED_DOMAIN &&
-      payload.hd !== process.env.GOOGLE_ALLOWED_DOMAIN
-    ) {
+    const allowedDomain = getAllowedGoogleDomain();
+    const hostedDomain = typeof payload.hd === 'string'
+      ? payload.hd.trim().toLowerCase()
+      : '';
+
+    if (allowedDomain && hostedDomain !== allowedDomain) {
       return res.status(403).json({
         status: 403,
         message: 'Google account domain is not allowed'

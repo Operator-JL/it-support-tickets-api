@@ -12,6 +12,8 @@ const errorMessages = {
   "google credential is required": "Google no devolvio credencial.",
   "invalid google credential": "Credencial de Google invalida.",
   "google account is not linked to this user": "Esta cuenta de Google no esta vinculada a este usuario.",
+  "google account domain is not allowed": "Esta cuenta de Google no pertenece al dominio permitido.",
+  "google email is not verified": "El correo de Google no esta verificado.",
   "ticket not found": "Ticket no encontrado.",
   "user not found": "Usuario no encontrado.",
   "failed to fetch": "No se pudo conectar con el servidor.",
