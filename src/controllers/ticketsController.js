@@ -10,6 +10,7 @@ const mapTicket = (ticket) => {
   return {
     id: ticket.id,
     user_id: ticket.user_id,
+    assigned_to_user_id: ticket.assigned_to_user_id,
     title: ticket.title,
     description: ticket.description,
     category: ticket.category,
@@ -26,6 +27,7 @@ const getTicketSelectQuery = (whereClause = '') => {
     SELECT
       id,
       user_id,
+      assigned_to_user_id,
       title,
       [description],
       category,
@@ -44,6 +46,7 @@ const getTicketOutputQuery = () => {
     OUTPUT
       INSERTED.id,
       INSERTED.user_id,
+      INSERTED.assigned_to_user_id,
       INSERTED.title,
       INSERTED.[description],
       INSERTED.category,

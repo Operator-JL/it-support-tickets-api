@@ -52,7 +52,7 @@ function LoginPage({ onGoogleLogin, onLogin, sessionMessage = "" }) {
       </section>
 
       <section className="login-card" aria-labelledby="login-title">
-        <h1 id="login-title">Iniciar sesion</h1>
+        <h2 id="login-title">Iniciar sesion</h2>
         <p>Accede con tu usuario registrado en el servidor.</p>
 
         <form className="login-form" onSubmit={handleSubmit}>

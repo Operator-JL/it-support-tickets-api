@@ -1,4 +1,3 @@
-// guarda socket.io para usarla desde otros archivos
 let ioInstance = null;
 
 const SUPPORT_ROOM = 'support';
@@ -15,7 +14,6 @@ const getRoleRoom = (role) => {
   return normalizedRole ? `role:${normalizedRole}` : null;
 };
 
-// recibe la instancia principal de socket.io cuando arranca el servidor
 const setSocketServer = (io) => {
   ioInstance = io;
 };
@@ -42,9 +40,7 @@ const registerSocketRooms = (socket, user) => {
   }
 };
 
-// evento en tiempo real a todos los clientes conectados
 const emitSocketEvent = (eventName, payload) => {
-  // si socket.io aun no esta listo, no hace nada
   if (!ioInstance) {
     return;
   }
@@ -71,7 +67,6 @@ const emitTicketEvent = (eventName, payload, ticket = payload?.ticket) => {
   emitSocketEventToRooms(eventName, payload, [SUPPORT_ROOM, ownerRoom]);
 };
 
-// exporta
 module.exports = {
   setSocketServer,
   emitSocketEvent,

@@ -62,7 +62,7 @@ io.on('connection', (socket) => {
 });
 
 app.use(cors(corsOptions));
-app.use(express.json()); // recibe los datos en json de postman
+app.use(express.json());
 
 app.use((error, req, res, next) => {
   if (error?.type === 'entity.parse.failed') {
@@ -75,19 +75,18 @@ app.use((error, req, res, next) => {
   return next(error);
 });
 
-app.use('/', authRoutes); // jala lo de register, login, logout y profile
+app.use('/', authRoutes);
 app.use('/tickets', ticketsRoutes);
 app.use('/tickets', ticketCommentsRoutes);
 app.use('/users', usersRoutes);
 
-app.use((req, res) => { // pa las rutas que no existen
+app.use((req, res) => {
   return res.status(404).json({
     status: 404,
     message: 'Route not found'
   });
 });
 
-// al arrancar el backend, pone todos los usuarios como desconectados
 resetAllUserPresence()
   .catch((error) => {
     console.error('Error resetting user presence on startup:', error.message);

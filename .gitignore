@@ -3,4 +3,13 @@ frontend/node_modules/
 .env
 dist/
 frontend/dist/
+build/
+frontend/build/
+coverage/
+frontend/coverage/
+.tmp/
+tmp/
+temp/
+.agents/
+.codex/
 npm-debug.log*

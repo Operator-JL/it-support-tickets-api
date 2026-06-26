@@ -1,237 +1,109 @@
-# SIST - Sistema Interno de Soporte Tecnico
+﻿# SIST - Sistema Interno de Soporte Tecnico
+# OAuth - agregue el correo desarrollowebjeli@gmail.com  para que se pueda probar el iniciar con google
 
-Sistema interno para crear, revisar y dar seguimiento a tickets de soporte tecnico.
+Sistema web para crear, revisar y dar seguimiento a tickets de soporte tecnico.
 
-## Tecnologias
+## Stack
 
-- Node.js
-- Express
-- SQL Server
-- React/Vite
-- JWT
-- bcrypt
-- Google OAuth/OIDC
-- Socket.IO
-- Resend para notificaciones opcionales por correo
+* Node.js
+* Express
+* SQL Server
+* React + Vite
+* JWT
+* bcrypt
+* Google OAuth
+* Socket.IO
+* Resend opcional para correos
 
 ## Configuracion
 
-Backend: copiar `.env.example` a `.env` y configurar:
+Backend:
 
 ```env
 PORT=3000
-DB_USER=
+DB_USER=sa
 DB_PASSWORD=
 DB_SERVER=
-DB_DATABASE=
-JWT_SECRET=sist_demo_secret_change_me
-GOOGLE_CLIENT_ID=
-GOOGLE_ALLOWED_DOMAIN=
-GOOGLE_ALLOWED_EMAILS=
-GOOGLE_ADMIN_EMAILS=
-GOOGLE_DEFAULT_ROLE=usuario
+DB_DATABASE=ITSupportTicketsDB
+JWT_SECRET=sist_demo_secret_local
 FRONTEND_URL=http://localhost:5173
+
 EMAIL_ENABLED=false
 RESEND_API_KEY=
-EMAIL_FROM=
+EMAIL_FROM=onboarding@resend.dev
 EMAIL_TO=
+
+GOOGLE_CLIENT_ID=
+GOOGLE_DEFAULT_ROLE=usuario
+GOOGLE_ADMIN_EMAILS=
+GOOGLE_ALLOWED_EMAILS=
+GOOGLE_ALLOWED_DOMAIN=
 ```
 
-Frontend: copiar `frontend/.env.example` a `frontend/.env` si se necesita cambiar la URL del API o activar Google:
+ `frontend/.env`:
 
 ```env
 VITE_API_URL=http://localhost:3000
 VITE_GOOGLE_CLIENT_ID=
 ```
 
-`GOOGLE_CLIENT_ID` y `VITE_GOOGLE_CLIENT_ID` deben usar el mismo Client ID de Google. No se necesita client secret para este flujo: el frontend recibe un Google ID token, el backend lo verifica con Google y SIST genera su propio JWT interno.
+Si se usa Google OAuth, agregue un correo que mire que utilizo en clase : desarrollowebjeli@gmail.com
+## Base de datos
 
-Si no se configuran las variables de Google, el login local sigue funcionando y el boton de Google queda deshabilitado o devuelve un 503 claro.
+Ejecutar el script:
 
-Variables Google opcionales:
+database.sql
 
-- `GOOGLE_ALLOWED_DOMAIN`: restringe Google login a un dominio, por ejemplo `escuela.edu`.
-- `GOOGLE_ALLOWED_EMAILS`: lista separada por comas; si tiene valor, solo esos correos pueden entrar con Google.
-- `GOOGLE_ADMIN_EMAILS`: lista separada por comas; esos correos se crean como `admin` solo la primera vez que entran por Google.
-- `GOOGLE_DEFAULT_ROLE`: rol para usuarios Google auto-creados. Usar `usuario`, `soporte` o `admin`; recomendado `usuario`.
+en SQL Server Management Studio.
 
-Si `GOOGLE_ALLOWED_DOMAIN` y `GOOGLE_ALLOWED_EMAILS` quedan vacios, cualquier cuenta Google valida puede auto-crear usuario con el rol de `GOOGLE_DEFAULT_ROLE`.
+El script crea la base: ITSupportTicketsDB
 
-`EMAIL_TO` acepta un correo o varios separados por coma. Las notificaciones por Resend son opcionales y best-effort: si `EMAIL_ENABLED=false` o faltan datos de correo, los tickets siguen funcionando.
 
-## Base de datos y datos demo
 
-El script oficial esta en `database.sql`.
-
-Ese script crea o actualiza:
-
-- `Users`
-- `Tickets`
-- `TicketComments`
-
-Ejecutalo en SQL Server Management Studio o con `sqlcmd` antes de levantar el backend. La base esperada es `ITSupportTicketsDB`; en `.env`, `DB_SERVER` puede ser `localhost` o una instancia como `localhost\SQLEXPRESS`.
-
-Tambien deja estos usuarios demo:
-
-- `admin@sist.local` / `Admin123!` / `admin`
-- `soporte@sist.local` / `Soporte123!` / `soporte`
-- `usuario@sist.local` / `Usuario123!` / `usuario`
-
-`Users.is_active` indica si la cuenta esta habilitada. `Users.is_online` se usa para presencia en Socket.IO.
-
-Si una base antigua no tiene presencia, `database.sql` agrega la columna de forma idempotente:
-
-```sql
-IF COL_LENGTH('dbo.Users', 'is_online') IS NULL
-BEGIN
-  ALTER TABLE dbo.Users
-  ADD is_online BIT NOT NULL
-  CONSTRAINT DF_Users_is_online DEFAULT (0) WITH VALUES;
-END;
-```
-
-Al iniciar el backend, la presencia se reinicia a desconectado (`is_online = 0`). Presencia nunca debe cambiar `is_active`.
-
-## Correr backend
-
-```powershell
-cd C:\Users\jlozo\Desktop\JL-it-support-tickets-api
-npm install
-npm run dev
-```
-
-## Correr frontend
-
-```powershell
-cd C:\Users\jlozo\Desktop\JL-it-support-tickets-api\frontend
-npm install
-npm run dev
-```
-
-Backend: [http://localhost:3000](http://localhost:3000/)
-
-Frontend: [http://localhost:5173](http://localhost:5173/)
-
-## Configurar Google OAuth para demo
-
-1. Entrar a [Google Cloud Console](https://console.cloud.google.com/).
-2. Crear o elegir un proyecto.
-3. Ir a **APIs & Services > OAuth consent screen** y configurar la pantalla de consentimiento.
-4. Ir a **APIs & Services > Credentials > Create credentials > OAuth client ID**.
-5. Elegir tipo **Web application**.
-6. En **Authorized JavaScript origins**, agregar:
+## Usuarios demo
 
 ```text
-http://localhost:5173
+admin@sist.local / Admin123! / admin
+soporte@sist.local / Soporte123! / soporte
+usuario@sist.local / Usuario123! / usuario
 ```
 
-7. Crear la credencial y copiar el **Client ID**.
-8. Pegar el mismo Client ID en backend y frontend:
+## Ejecutar
 
-```env
-# .env del backend
-GOOGLE_CLIENT_ID=TU_CLIENT_ID.apps.googleusercontent.com
-
-# frontend/.env
-VITE_GOOGLE_CLIENT_ID=TU_CLIENT_ID.apps.googleusercontent.com
-```
-
-9. Si el profesor debe entrar como admin por Google, agregar su correo en backend:
-
-```env
-GOOGLE_ADMIN_EMAILS=profesor@ejemplo.edu
-GOOGLE_DEFAULT_ROLE=usuario
-```
-
-10. Si se quiere restringir acceso, usar una de estas opciones:
-
-```env
-GOOGLE_ALLOWED_EMAILS=profesor@ejemplo.edu,alumno@ejemplo.edu
-GOOGLE_ALLOWED_DOMAIN=ejemplo.edu
-```
-
-Reinicia backend y frontend despues de cambiar variables `.env`.
-
-## Rutas principales
-
-- `GET /`
-- `POST /register`
-- `POST /login`
-- `POST /auth/google`
-- `POST /logout`
-- `GET /profile`
-- `GET /tickets`
-- `POST /tickets`
-- `GET /tickets/my`
-- `GET /tickets/:id`
-- `PUT /tickets/:id`
-- `PATCH /tickets/:id/status`
-- `DELETE /tickets/:id`
-- `GET /tickets/:ticketId/comments`
-- `POST /tickets/:ticketId/comments`
-- `GET /users`
-- `POST /users`
-- `PUT /users/:id`
-- `PATCH /users/:id/status`
-- `PATCH /users/:id/password`
-- `PATCH /users/:id/role`
-
-## Permisos
-
-- `usuario`: puede crear tickets, ver sus propios tickets y comentar tickets a los que tiene acceso.
-- `soporte`: puede ver todos los tickets, actualizar tickets, cambiar estados y comentar.
-- `admin`: puede hacer lo mismo que soporte, ademas administra usuarios y elimina tickets.
-- El backend valida permisos aunque el frontend oculte opciones.
-- No se permite desactivar el admin actual ni quitar/desactivar el ultimo admin activo.
-
-## Seguridad
-
-- JWT se usa como sesion interna del sistema.
-- bcrypt protege las contrasenas locales.
-- Los roles `admin`, `soporte` y `usuario` controlan permisos.
-- Google valida la identidad externa con OIDC, pero SIST genera su propio JWT interno.
-- Los usuarios Google no guardan contrasena local.
-- Socket.IO recibe el JWT en `socket.auth.token` y valida el token antes de registrar presencia.
-- `GOOGLE_ALLOWED_DOMAIN` es opcional y restringe cuentas Google por dominio.
-- `GOOGLE_ALLOWED_EMAILS` permite cerrar acceso a correos concretos.
-- `GOOGLE_ADMIN_EMAILS` permite que el correo del profesor se cree como admin.
-- Los usuarios Google se guardan con `provider='google'` y `google_id`.
-- Eventos Socket.IO: `ticket:created`, `ticket:updated`, `ticket:status-updated`, `ticket:deleted`, `comment:created`.
-
-## Troubleshooting
-
-- Si `3000` esta ocupado, cambia `PORT` en backend y actualiza `VITE_API_URL` en frontend.
-- Si Vite usa otro puerto distinto a `5173`, actualiza `FRONTEND_URL` para CORS y Socket.IO.
-- Si falta `JWT_SECRET`, el backend no debe arrancar.
-- Si Google no esta configurado, el login local funciona y el boton de Google queda deshabilitado.
-
-## Checklist demo
-
-1. Levantar SQL Server y ejecutar `database.sql`.
-2. Levantar backend con `npm run dev`.
-3. Levantar frontend con `npm run dev` dentro de `frontend`.
-4. Entrar como admin y mostrar panel, tickets, usuarios y reportes.
-5. Crear usuario, cambiar rol, desactivar, probar login bloqueado y reactivar.
-6. Entrar como soporte y confirmar que no administra usuarios.
-7. Crear ticket, cambiar estado a `En proceso` y `Cerrado`.
-8. Mostrar reportes y explicar que salen de tickets reales.
-9. Explicar JWT, bcrypt, roles, OAuth y presencia online/offline.
-
-## Pruebas manuales sugeridas
+Backend:
 
 ```powershell
-$BaseUrl = "http://localhost:3000"
-
-$AdminLogin = Invoke-RestMethod -Method Post -Uri "$BaseUrl/login" -ContentType "application/json" -Body (@{ email="admin@sist.local"; password="Admin123!" } | ConvertTo-Json)
-$AdminToken = $AdminLogin.token
-
-$UserLogin = Invoke-RestMethod -Method Post -Uri "$BaseUrl/login" -ContentType "application/json" -Body (@{ email="usuario@sist.local"; password="Usuario123!" } | ConvertTo-Json)
-$UserToken = $UserLogin.token
-
-Invoke-WebRequest -Method Post -Uri "$BaseUrl/login" -ContentType "application/json" -Body (@{ correo="admin@sist.local"; password="Admin123!" } | ConvertTo-Json) -UseBasicParsing
-Invoke-WebRequest -Method Post -Uri "$BaseUrl/login" -ContentType "application/json" -Body (@{ email="admin@sist.local"; password="bad-password" } | ConvertTo-Json) -UseBasicParsing
-Invoke-WebRequest -Method Get -Uri "$BaseUrl/profile" -Headers @{ Authorization="Bearer $AdminToken" } -UseBasicParsing
-Invoke-WebRequest -Method Get -Uri "$BaseUrl/users" -Headers @{ Authorization="Bearer $AdminToken" } -UseBasicParsing
-Invoke-WebRequest -Method Get -Uri "$BaseUrl/users" -UseBasicParsing
-Invoke-WebRequest -Method Get -Uri "$BaseUrl/users" -Headers @{ Authorization="Bearer $UserToken" } -UseBasicParsing
+npm install
+npm run dev
 ```
+
+Frontend:
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+URLs:
+
+```text
+Backend:  http://localhost:3000
+Frontend: http://localhost:5173
+```
+
+## Roles
+
+* `usuario`: crea y revisa sus propios tickets.
+* `soporte`: revisa y actualiza tickets.
+* `admin`: administra usuarios, tickets y permisos.
+
+## Nota
+
+Resend esta desactivado por defecto:
+
+```env
+EMAIL_ENABLED=false
+```
+
+Asi no se envian correos reales durante el testing

@@ -28,7 +28,6 @@ const setUserPresenceIfCurrent = async (userId, isOnline, version) => {
   }
 };
 
-// obtiene el token que manda el frontend por socket
 const getSocketToken = (socket) => {
   const authToken = socket.handshake.auth && socket.handshake.auth.token;
   const headerToken = socket.handshake.headers.authorization;
@@ -44,7 +43,6 @@ const getSocketToken = (socket) => {
   return null;
 };
 
-// valida el jwt del socket y regresa el usuario activo desde la base
 const getSocketUser = async (socket) => {
   const token = getSocketToken(socket);
 
@@ -69,7 +67,6 @@ const getSocketUser = async (socket) => {
   return mapSessionUser(user);
 };
 
-// marca si el usuario esta conectado en tiempo real
 const setUserPresence = async (userId, isOnline) => {
   const pool = await getConnection();
   const presenceColumn = await getPresenceColumn(pool);
@@ -89,7 +86,6 @@ const setUserPresence = async (userId, isOnline) => {
     `);
 };
 
-// al iniciar el servidor, pone todos los usuarios como desconectados
 const resetAllUserPresence = async () => {
   userSockets.clear();
   userPresenceVersions.clear();
@@ -109,7 +105,6 @@ const resetAllUserPresence = async () => {
     `);
 };
 
-// registra un socket conectado para un usuario
 const registerUserSocket = async (userId, socketId) => {
   if (!userId || !socketId) {
     return;
@@ -127,7 +122,6 @@ const registerUserSocket = async (userId, socketId) => {
   await setUserPresence(normalizedUserId, true);
 };
 
-// quita un socket cuando el usuario cierra pestaña o se desconecta
 const unregisterUserSocket = async (userId, socketId) => {
   if (!userId || !socketId) {
     return;
@@ -144,7 +138,6 @@ const unregisterUserSocket = async (userId, socketId) => {
 
   sockets.delete(socketId);
 
-  // si ya no tiene pestanas abiertas, lo marca desconectado
   if (sockets.size === 0) {
     userSockets.delete(normalizedUserId);
     const version = bumpPresenceVersion(normalizedUserId);

@@ -1,10 +1,3 @@
--- antes solo tenia user_id en tickets y eso no dejaba claro si era el creador o el asignado
--- ahora queda separado:
--- user_id = usuario que crea o reporta el ticket
--- assigned_to_user_id = usuario asignado para atenderlo
--- el ticket queda con quien lo crea y con quien se le asigna
--- este script crea la base y las tablas si no existen, no borra nada
-
 IF DB_ID('ITSupportTicketsDB') IS NULL
 BEGIN
   CREATE DATABASE ITSupportTicketsDB;
@@ -14,10 +7,6 @@ GO
 USE ITSupportTicketsDB;
 GO
 
--- tabla principal de usuarios
--- aqui lo de usuarios normales, soporte y admins
--- passwordhash guarda el hash de la contraseña, no la contraseña real
--- email queda unico para evitar usuarios duplicados
 IF OBJECT_ID('dbo.Users', 'U') IS NULL
 BEGIN
   CREATE TABLE dbo.Users (
@@ -52,7 +41,6 @@ BEGIN
 END;
 GO
 
--- migraciones pequenas para bases ya creadas con la version anterior
 IF COL_LENGTH('dbo.Users', 'is_active') IS NULL
 BEGIN
   ALTER TABLE dbo.Users
@@ -73,7 +61,6 @@ BEGIN
     ADD is_online BIT NOT NULL
       CONSTRAINT DF_Users_is_online DEFAULT (0);
 
-  -- antes is_active se usaba como presencia; desde ahora is_active es cuenta habilitada
   UPDATE dbo.Users SET is_active = 1;
 END;
 GO
@@ -132,6 +119,10 @@ GO
 
 UPDATE dbo.Users SET [role] = 'usuario' WHERE [role] = 'user';
 UPDATE dbo.Users SET [role] = 'soporte' WHERE [role] = 'it';
+UPDATE dbo.Users SET [role] = 'soporte' WHERE [role] = 'support';
+UPDATE dbo.Users SET [role] = 'soporte' WHERE [role] = 'tecnico';
+UPDATE dbo.Users SET [role] = 'soporte' WHERE [role] = 'tecnico_it';
+UPDATE dbo.Users SET [role] = 'usuario' WHERE [role] NOT IN ('admin', 'soporte', 'usuario');
 GO
 
 ALTER TABLE dbo.Users
@@ -158,7 +149,6 @@ BEGIN
 END;
 GO
 
--- usuarios demo oficiales
 MERGE dbo.Users AS target
 USING (
   VALUES
@@ -174,19 +164,12 @@ WHEN MATCHED THEN
     target.[role] = source.[role],
     target.is_active = 1,
     target.is_online = 0,
-    target.provider = 'local',
-    target.google_id = NULL,
     target.updated_at = GETDATE()
 WHEN NOT MATCHED THEN
   INSERT ([name], email, PasswordHash, [role], is_active, is_online, provider)
   VALUES (source.[name], source.email, source.PasswordHash, source.[role], 1, 0, 'local');
 GO
 
--- tabla principal de tickets
--- user_id no es el usuario asignado; es quien crea o reporta el ticket
--- assigned_to_user_id es quien atiende el ticket y puede quedar null al inicio
--- por eso esta tabla tiene dos relaciones hacia users
--- updated_at inicia con getdate; el backend lo actualiza cuando se edita o cambia estado
 IF OBJECT_ID('dbo.Tickets', 'U') IS NULL
 BEGIN
   CREATE TABLE dbo.Tickets (
@@ -222,6 +205,58 @@ END;
 GO
 
 IF OBJECT_ID('dbo.Tickets', 'U') IS NOT NULL
+  AND COL_LENGTH('dbo.Tickets', 'category') IS NULL
+BEGIN
+  ALTER TABLE dbo.Tickets
+    ADD category NVARCHAR(100) NOT NULL
+      CONSTRAINT DF_Tickets_category DEFAULT ('General') WITH VALUES;
+END;
+GO
+
+IF OBJECT_ID('dbo.Tickets', 'U') IS NOT NULL
+  AND COL_LENGTH('dbo.Tickets', 'priority') IS NULL
+BEGIN
+  ALTER TABLE dbo.Tickets
+    ADD [priority] NVARCHAR(50) NOT NULL
+      CONSTRAINT DF_Tickets_priority DEFAULT ('Media') WITH VALUES;
+END;
+GO
+
+IF OBJECT_ID('dbo.Tickets', 'U') IS NOT NULL
+  AND COL_LENGTH('dbo.Tickets', 'status') IS NULL
+BEGIN
+  ALTER TABLE dbo.Tickets
+    ADD [status] NVARCHAR(50) NOT NULL
+      CONSTRAINT DF_Tickets_status DEFAULT ('Abierto') WITH VALUES;
+END;
+GO
+
+IF OBJECT_ID('dbo.Tickets', 'U') IS NOT NULL
+  AND COL_LENGTH('dbo.Tickets', 'created_at') IS NULL
+BEGIN
+  ALTER TABLE dbo.Tickets
+    ADD created_at DATETIME NOT NULL
+      CONSTRAINT DF_Tickets_created_at DEFAULT (GETDATE()) WITH VALUES;
+END;
+GO
+
+IF OBJECT_ID('dbo.Tickets', 'U') IS NOT NULL
+  AND COL_LENGTH('dbo.Tickets', 'updated_at') IS NULL
+BEGIN
+  ALTER TABLE dbo.Tickets
+    ADD updated_at DATETIME NOT NULL
+      CONSTRAINT DF_Tickets_updated_at DEFAULT (GETDATE()) WITH VALUES;
+END;
+GO
+
+IF OBJECT_ID('dbo.Tickets', 'U') IS NOT NULL
+  AND COL_LENGTH('dbo.Tickets', 'closed_at') IS NULL
+BEGIN
+  ALTER TABLE dbo.Tickets ADD closed_at DATETIME NULL;
+END;
+GO
+
+IF OBJECT_ID('dbo.Tickets', 'U') IS NOT NULL
   AND COL_LENGTH('dbo.Tickets', 'assigned_to_user_id') IS NULL
 BEGIN
   ALTER TABLE dbo.Tickets ADD assigned_to_user_id INT NULL;
@@ -229,11 +264,76 @@ END;
 GO
 
 IF OBJECT_ID('dbo.Tickets', 'U') IS NOT NULL
+BEGIN
+  UPDATE dbo.Tickets
+  SET [priority] = 'Media'
+  WHERE [priority] IS NULL
+    OR [priority] NOT IN ('Baja', 'Media', 'Alta', 'Urgente');
+
+  UPDATE dbo.Tickets
+  SET [status] = 'Abierto'
+  WHERE [status] IS NULL
+    OR [status] NOT IN ('Abierto', 'En proceso', 'Cerrado');
+END;
+GO
+
+IF OBJECT_ID('dbo.Tickets', 'U') IS NOT NULL
+  AND OBJECT_ID('dbo.FK_Tickets_Users_Creator', 'F') IS NULL
+  AND NOT EXISTS (
+    SELECT 1
+    FROM dbo.Tickets t
+    LEFT JOIN dbo.Users u ON u.id = t.user_id
+    WHERE u.id IS NULL
+  )
+BEGIN
+  ALTER TABLE dbo.Tickets
+    ADD CONSTRAINT FK_Tickets_Users_Creator FOREIGN KEY (user_id)
+      REFERENCES dbo.Users (id);
+END;
+GO
+
+IF OBJECT_ID('dbo.Tickets', 'U') IS NOT NULL
   AND OBJECT_ID('dbo.FK_Tickets_Users_Assigned', 'F') IS NULL
+  AND NOT EXISTS (
+    SELECT 1
+    FROM dbo.Tickets t
+    LEFT JOIN dbo.Users u ON u.id = t.assigned_to_user_id
+    WHERE t.assigned_to_user_id IS NOT NULL
+      AND u.id IS NULL
+  )
 BEGIN
   ALTER TABLE dbo.Tickets
     ADD CONSTRAINT FK_Tickets_Users_Assigned FOREIGN KEY (assigned_to_user_id)
       REFERENCES dbo.Users (id);
+END;
+GO
+
+IF OBJECT_ID('dbo.Tickets', 'U') IS NOT NULL
+  AND OBJECT_ID('dbo.CK_Tickets_priority', 'C') IS NULL
+BEGIN
+  ALTER TABLE dbo.Tickets
+    ADD CONSTRAINT CK_Tickets_priority CHECK ([priority] IN ('Baja', 'Media', 'Alta', 'Urgente'));
+END;
+GO
+
+IF OBJECT_ID('dbo.Tickets', 'U') IS NOT NULL
+  AND OBJECT_ID('dbo.CK_Tickets_status', 'C') IS NULL
+BEGIN
+  ALTER TABLE dbo.Tickets
+    ADD CONSTRAINT CK_Tickets_status CHECK ([status] IN ('Abierto', 'En proceso', 'Cerrado'));
+END;
+GO
+
+IF OBJECT_ID('dbo.Tickets', 'U') IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1
+    FROM sys.indexes
+    WHERE name = 'IX_Tickets_user_id'
+      AND object_id = OBJECT_ID('dbo.Tickets')
+  )
+BEGIN
+  CREATE INDEX IX_Tickets_user_id
+    ON dbo.Tickets (user_id);
 END;
 GO
 
@@ -250,10 +350,19 @@ BEGIN
 END;
 GO
 
--- tabla de comentarios del ticket
--- ticket_id indica a que ticket pertenece el comentario
--- user_id indica quien escribio el comentario
--- asi se puede seguir el historial de atencion del ticket
+IF OBJECT_ID('dbo.Tickets', 'U') IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1
+    FROM sys.indexes
+    WHERE name = 'IX_Tickets_status'
+      AND object_id = OBJECT_ID('dbo.Tickets')
+  )
+BEGIN
+  CREATE INDEX IX_Tickets_status
+    ON dbo.Tickets ([status]);
+END;
+GO
+
 IF OBJECT_ID('dbo.TicketComments', 'U') IS NULL
 BEGIN
   CREATE TABLE dbo.TicketComments (
@@ -276,9 +385,71 @@ BEGIN
 END;
 GO
 
--- consultar las comprobaciones
+IF OBJECT_ID('dbo.TicketComments', 'U') IS NOT NULL
+  AND COL_LENGTH('dbo.TicketComments', 'created_at') IS NULL
+BEGIN
+  ALTER TABLE dbo.TicketComments
+    ADD created_at DATETIME NOT NULL
+      CONSTRAINT DF_TicketComments_created_at DEFAULT (GETDATE()) WITH VALUES;
+END;
+GO
 
--- 1. ver usuarios sin mostrar passwordhash
+IF OBJECT_ID('dbo.TicketComments', 'U') IS NOT NULL
+  AND OBJECT_ID('dbo.FK_TicketComments_Tickets', 'F') IS NULL
+  AND NOT EXISTS (
+    SELECT 1
+    FROM dbo.TicketComments c
+    LEFT JOIN dbo.Tickets t ON t.id = c.ticket_id
+    WHERE t.id IS NULL
+  )
+BEGIN
+  ALTER TABLE dbo.TicketComments
+    ADD CONSTRAINT FK_TicketComments_Tickets FOREIGN KEY (ticket_id)
+      REFERENCES dbo.Tickets (id);
+END;
+GO
+
+IF OBJECT_ID('dbo.TicketComments', 'U') IS NOT NULL
+  AND OBJECT_ID('dbo.FK_TicketComments_Users', 'F') IS NULL
+  AND NOT EXISTS (
+    SELECT 1
+    FROM dbo.TicketComments c
+    LEFT JOIN dbo.Users u ON u.id = c.user_id
+    WHERE u.id IS NULL
+  )
+BEGIN
+  ALTER TABLE dbo.TicketComments
+    ADD CONSTRAINT FK_TicketComments_Users FOREIGN KEY (user_id)
+      REFERENCES dbo.Users (id);
+END;
+GO
+
+IF OBJECT_ID('dbo.TicketComments', 'U') IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1
+    FROM sys.indexes
+    WHERE name = 'IX_TicketComments_ticket_id'
+      AND object_id = OBJECT_ID('dbo.TicketComments')
+  )
+BEGIN
+  CREATE INDEX IX_TicketComments_ticket_id
+    ON dbo.TicketComments (ticket_id);
+END;
+GO
+
+IF OBJECT_ID('dbo.TicketComments', 'U') IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1
+    FROM sys.indexes
+    WHERE name = 'IX_TicketComments_user_id'
+      AND object_id = OBJECT_ID('dbo.TicketComments')
+  )
+BEGIN
+  CREATE INDEX IX_TicketComments_user_id
+    ON dbo.TicketComments (user_id);
+END;
+GO
+
 SELECT
   id,
   [name],
@@ -295,7 +466,6 @@ FROM dbo.Users
 ORDER BY created_at DESC;
 GO
 
--- 2. ver tickets con el usuario que los creo
 SELECT
   t.id AS ticket_id,
   t.title,
@@ -307,8 +477,6 @@ INNER JOIN dbo.Users creator ON creator.id = t.user_id
 ORDER BY t.created_at DESC;
 GO
 
--- 3. ver tickets con creador y usuario asignado
--- una cosa es quien reporta y otra quien atiende
 SELECT
   t.id AS ticket_id,
   t.title,
@@ -321,7 +489,6 @@ LEFT JOIN dbo.Users assigned ON assigned.id = t.assigned_to_user_id
 ORDER BY t.created_at DESC;
 GO
 
--- 4. ver comentarios con ticket y usuario que comento
 SELECT
   c.id AS comment_id,
   c.ticket_id,
